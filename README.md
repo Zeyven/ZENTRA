@@ -51,6 +51,16 @@ ZENTRA 不局限于单一产品。
 
 它会持续连接 AI、创作工具、行业软件、知识与智能能力，把不同方向的产品组织成一个长期演进的软件生态。
 
+## License
+
+ZENTRA 采用 [Elastic License 2.0](./LICENSE)，属于 **source available** 软件。
+
+你可以在许可证允许的范围内查看、运行、修改、自托管和进行商业开发，但不得将本软件本身作为向第三方提供主要功能的托管 / 管理服务。
+
+- [LICENSE](./LICENSE) — Elastic License 2.0 正文
+- [许可证说明](./docs/license.md) — 中文通俗说明
+- [NOTICE](./NOTICE) — 品牌、版权与第三方声明
+
 ---
 
 **ZEYVEN**  
