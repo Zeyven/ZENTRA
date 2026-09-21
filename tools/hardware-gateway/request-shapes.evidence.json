@@ -1,0 +1,70 @@
+{
+  "requests": {
+    "CheckHandCode": 49,
+    "CheckJSCode": 10,
+    "CloseClock": 26,
+    "GetTecQueryList": 10,
+    "HeadBeat": 108031,
+    "ReportClock": 44,
+    "SystemClockInfo": 107816,
+    "SystemDeviceLogin": 7,
+    "SystemUserLogin": 78,
+    "conn": 44
+  },
+  "request_body_shapes": {
+    "CheckHandCode": [
+      {
+        "array": [
+          "{\"data\": {\"bh\": \"str\", \"id\": \"str\"}, \"funid\": \"str\", \"pgid\": \"str\"}"
+        ]
+      }
+    ],
+    "CheckJSCode": [
+      {
+        "array": [
+          "{\"data\": {\"bh\": \"str\"}, \"funid\": \"str\", \"pgid\": \"str\"}"
+        ]
+      }
+    ],
+    "CloseClock": [
+      {
+        "array": [
+          "{\"data\": \"null\", \"funid\": \"str\", \"pgid\": \"str\"}"
+        ]
+      }
+    ],
+    "GetTecQueryList": [
+      {
+        "array": [
+          "{\"data\": \"null\", \"funid\": \"str\", \"pgid\": \"str\"}",
+          "{\"data\": {\"bh\": \"str\", \"id\": \"str\"}, \"funid\": \"str\", \"pgid\": \"str\"}"
+        ]
+      }
+    ],
+    "HeadBeat": [
+      "str"
+    ],
+    "ReportClock": [
+      {
+        "array": [
+          "{\"data\": {\"array\": [\"{\\\"bh\\\": \\\"str\\\", \\\"mc\\\": \\\"str\\\"}\"]}, \"funid\": \"str\", \"pgid\": \"str\"}"
+        ]
+      }
+    ],
+    "SystemClockInfo": [
+      "null"
+    ],
+    "SystemDeviceLogin": [
+      "null"
+    ],
+    "SystemUserLogin": [
+      {
+        "id": "str"
+      }
+    ],
+    "conn": [
+      "str"
+    ]
+  },
+  "unparsed_request_records": 0
+}

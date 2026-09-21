@@ -1,0 +1,9 @@
+{
+  "apiOrigin": "https://saas.zephael.cn",
+  "listenHost": "127.0.0.1",
+  "port": 18032,
+  "storeId": 1,
+  "devices": [
+    {"ip": "127.0.0.1", "deviceId": "REPLACE_WITH_TEST_DEVICE_ID", "roomNo": "TEST203", "roomId": 1}
+  ]
+}

@@ -1,0 +1,6 @@
+import {z} from 'zod';
+export const MarketingTrigger=z.enum(['new_member_no_visit','after_visit','birthday','dormant','member_expiry','booking_cancel']);
+export const MarketingWorkflow=z.object({version:z.number().int().nonnegative(),name:z.string().trim().min(1).max(100),enabled:z.boolean(),delay_days:z.number().int().min(0).max(365),dormant_days:z.number().int().min(7).max(3650),coupon_name:z.string().trim().min(1).max(100),coupon_value:z.number().positive().max(1000000).multipleOf(0.01),coupon_min_amount:z.number().nonnegative().max(1000000).multipleOf(0.01),coupon_expire_days:z.number().int().min(1).max(365),channel:z.enum(['in_app','sms','wechat']).default('in_app')}).strict();
+export const marketingDefaults=[
+ ['新客未到店关怀','new_member_no_visit',1,20,68,14],['消费后复购提醒','after_visit',14,20,88,14],['生日礼遇','birthday',0,30,128,7],['沉睡会员唤醒','dormant',0,30,100,14],['会员到期提醒','member_expiry',0,20,88,14],['取消预约挽回','booking_cancel',0,15,68,7]
+].map(([name,trigger_type,delay_days,coupon_value,coupon_min_amount,coupon_expire_days])=>({id:null,version:0,name:String(name),trigger_type:String(trigger_type),enabled:0,delay_days:Number(delay_days),dormant_days:30,coupon_name:String(name)+'券',coupon_value:Number(coupon_value),coupon_min_amount:Number(coupon_min_amount),coupon_expire_days:Number(coupon_expire_days),channel:'in_app'}));

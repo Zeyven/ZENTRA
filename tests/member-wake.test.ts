@@ -1,0 +1,30 @@
+import {before,after,test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {harness,succeeded} from './helpers.js';
+import {inTenant,tenantQuery} from '../apps/server/src/db/pools.js';
+let h:Awaited<ReturnType<typeof harness>>,a:any,b:any;
+before(async()=>{h=await harness();a=await h.onboard('store');b=await h.onboard()});after(()=>h.stop());
+const api=(path:string,method='GET',body?:unknown,m=a,store=0,key=randomUUID())=>h.call('/api/merchant/v1'+path,method,body,m.token,m.stores[store].id,key);
+test('manual wake is atomic, tenant/store scoped and deduplicates concurrent distinct requests',async()=>{
+ for(const [m,store] of [[a,0],[a,1],[b,0]] as const)succeeded(await api('/members','POST',{name:'同名会员',card_no:'SAME'},m,store));
+ const body={name:'回归券',value:50,min_amount:100,expire_days:30,threshold_days:90},key=randomUUID();
+ const first=succeeded(await api('/members/wake','POST',body,a,0,key));assert.equal(first.count,1);
+ assert.deepEqual(succeeded(await api('/members/wake','POST',body,a,0,key)),first);
+ const concurrent=await Promise.all([1,2].map(()=>api('/members/wake','POST',{...body,name:'并发券'})));
+ assert.deepEqual(concurrent.map(r=>succeeded(r).count).sort(),[0,1]);
+ assert.equal(succeeded(await api('/coupons','GET',undefined,a,1)).length,0);
+ assert.equal(succeeded(await api('/coupons','GET',undefined,b)).length,0);
+ assert.equal((await api('/members/wake','POST',{...body,value:-1})).status,400);
+ assert.equal(succeeded(await api('/members/wake','POST',body,b,1)).count,1);
+ assert.equal(succeeded(await api('/coupons','GET',undefined,b,1)).length,1);
+});
+test('wake excludes frozen and recently consuming common members across stores',async()=>{
+ const frozen=succeeded(await api('/members','POST',{name:'冻结会员'},b));
+ succeeded(await api('/members/'+frozen.id+'/status','POST',{status:'frozen'},b));
+ const recent=succeeded(await api('/members','POST',{name:'异店活跃会员'},b));
+ await inTenant(b.merchant.id,async()=>{await tenantQuery("INSERT INTO orders(store_id,order_no,member_id,status,closed_at) VALUES($1,$2,$3,'closed',now())",[b.stores[1].id,randomUUID(),recent.id])});
+ succeeded(await api('/members/wake','POST',{name:'排除验证券',value:20},b));
+ const coupons=succeeded(await api('/coupons','GET',undefined,b));
+ assert.equal(coupons.some((c:any)=>[recent.id,frozen.id].includes(c.member_id)),false);
+});

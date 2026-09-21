@@ -1,0 +1,15 @@
+CREATE UNIQUE INDEX one_open_shift_per_store ON shifts(merchant_id,store_id) WHERE status='open';
+ALTER TABLE shifts ADD COLUMN summary_json jsonb;
+ALTER TABLE shifts ADD COLUMN closed_by bigint;
+ALTER TABLE shifts ADD FOREIGN KEY(merchant_id,closed_by) REFERENCES merchant_users(merchant_id,id);
+ALTER TABLE shift_entries ADD COLUMN payment_id bigint;
+ALTER TABLE shift_entries ADD COLUMN reversal_of bigint;
+ALTER TABLE shift_entries ADD UNIQUE(merchant_id,id);
+ALTER TABLE shift_entries ADD UNIQUE(merchant_id,store_id,id);
+ALTER TABLE shift_entries ADD FOREIGN KEY(merchant_id,store_id,payment_id) REFERENCES payments(merchant_id,store_id,id);
+ALTER TABLE shift_entries ADD FOREIGN KEY(merchant_id,store_id,reversal_of) REFERENCES shift_entries(merchant_id,store_id,id);
+CREATE UNIQUE INDEX shift_entry_one_reversal ON shift_entries(merchant_id,reversal_of) WHERE reversal_of IS NOT NULL;
+CREATE UNIQUE INDEX shift_payment_entry_once ON shift_entries(merchant_id,payment_id) WHERE kind='payment';
+CREATE UNIQUE INDEX shift_asset_entry_once ON shift_entries(merchant_id,asset_operation_id) WHERE kind IN('recharge','recharge_reversal');
+CREATE INDEX shift_entries_summary ON shift_entries(merchant_id,store_id,shift_id,id);
+CREATE INDEX domain_events_store_cursor ON domain_events(merchant_id,store_id,id);

@@ -1,0 +1,54 @@
+import {before,after,test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {harness,succeeded,password} from './helpers.js';
+import {inTenant,tenantQuery} from '../apps/server/src/db/pools.js';
+let h:Awaited<ReturnType<typeof harness>>,a:any,b:any,employee:string;
+const api=(p:string,m='GET',body?:any,key=randomUUID(),store?:number)=>h.api(a.token,store,p,m,body,key);
+const config={type:'item',payload:{name:'连锁茶水',type:'product',price:12.01,cost:3,unit:'杯'}};
+before(async()=>{h=await harness();a=await h.onboard();b=await h.onboard();const user=succeeded(await api('/users','POST',{username:'manager',password,name:'店长'}));succeeded(await api('/users/'+user.id+'/grants','PUT',{grants:[{store_id:a.stores[0].id,role:'manager'}]}));employee=succeeded(await h.api('',undefined,'/auth/login','POST',{merchant_code:a.merchant.code,username:'manager',password})).token});after(()=>h.stop());
+test('merchant templates isolate identical request keys and names, validate configuration only, and never grant headquarters from an absent store',async()=>{
+ const key=randomUUID(),template=succeeded(await api('/catalog/templates','POST',config,key));
+ assert.equal(succeeded(await api('/catalog/templates','POST',config,key, a.stores[1].id)).id,template.id);
+ const foreign=succeeded(await h.api(b.token,undefined,'/catalog/templates','POST',config,key));assert.notEqual(foreign.id,template.id);
+ assert.equal((await api('/catalog/templates','POST',{...config,payload:{...config.payload,price:1.001}})).status,400);
+ assert.equal((await api('/catalog/templates','POST',{type:'member_level',payload:{name:'危险会员',min_consume:0,discount:1,balance:100,phone:'13800138000'}})).status,400);
+ for(const store of [undefined,a.stores[0].id])assert.equal((await h.api(employee,store,'/catalog/templates')).status,403);
+ assert.equal((await api('/catalog/preview','POST',{template_id:foreign.id,version:1,store_ids:[a.stores[0].id]})).status,404);
+ assert.equal((await api('/catalog/preview','POST',{template_id:template.id,version:1,store_ids:[a.stores[0].id,b.stores[0].id]})).status,403);
+ const rows=await inTenant(a.merchant.id,async()=>(await tenantQuery('SELECT id FROM merchant_templates WHERE id=$1',[foreign.id])).rows);assert.deepEqual(rows,[]);
+ await assert.rejects(inTenant(a.merchant.id,()=>tenantQuery('UPDATE merchant_templates SET merchant_id=$1 WHERE id=$2',[b.merchant.id,template.id])));
+});
+test('previewed atomic distribution binds only explicit stores, preserves stock and unrelated same-name records, rejects stale local edits and retries exactly once',async()=>{
+ const t=succeeded(await api('/catalog/templates','POST',{...config,payload:{...config.payload,name:'分发商品'}}));
+ const existing=succeeded(await h.api(a.token,a.stores[0].id,'/items','POST',{name:'分发商品',type:'product',price:88,stock:7}));
+ const body={template_id:t.id,version:t.version,store_ids:a.stores.map((s:any)=>s.id)},preview=succeeded(await api('/catalog/preview','POST',body));assert(preview.targets.every((x:any)=>x.action==='create'));
+ const key=randomUUID(),request={...body,preview_hash:preview.preview_hash};const results=await Promise.all([api('/catalog/distribute','POST',request,key),api('/catalog/distribute','POST',request,key)]);results.forEach(succeeded);assert.deepEqual(results[0].data,results[1].data);assert.equal(results[0].data.distributed,2);
+ const bindings=succeeded(await api('/catalog/distribution?template_id='+t.id));assert.equal(bindings.length,2);
+ let rows=succeeded(await h.api(a.token,a.stores[0].id,'/items'));assert.equal(rows.find((x:any)=>x.id===existing.id).price,88);assert.equal(rows.find((x:any)=>x.id===bindings[0].item_id).stock,0);
+ await inTenant(a.merchant.id,()=>tenantQuery('UPDATE items SET stock=5 WHERE id=$1',[bindings[0].item_id]));
+ const changed=succeeded(await api('/catalog/templates','POST',{id:t.id,version:t.version,type:'item',payload:{...t.payload,price:15}})),updatedBody={...body,version:changed.version};const next=succeeded(await api('/catalog/preview','POST',updatedBody));
+ await inTenant(a.merchant.id,()=>tenantQuery('UPDATE items SET price=13 WHERE id=$1',[bindings[1].item_id]));
+ assert.equal((await api('/catalog/distribute','POST',{...updatedBody,preview_hash:next.preview_hash})).status,409);
+ rows=succeeded(await h.api(a.token,a.stores[0].id,'/items'));assert.equal(rows.find((x:any)=>x.id===bindings[0].item_id).price,12.01);
+ const refreshed=succeeded(await api('/catalog/preview','POST',updatedBody));succeeded(await api('/catalog/distribute','POST',{...updatedBody,preview_hash:refreshed.preview_hash}));
+ rows=succeeded(await h.api(a.token,a.stores[0].id,'/items'));assert.equal(rows.find((x:any)=>x.id===bindings[0].item_id).stock,5);assert.equal(rows.find((x:any)=>x.id===bindings[0].item_id).price,15);
+ const unchanged=succeeded(await api('/catalog/preview','POST',updatedBody));assert(unchanged.targets.every((x:any)=>x.action==='unchanged'));
+ assert.equal((await api('/catalog/distribute','POST',{...updatedBody,all:true,preview_hash:unchanged.preview_hash})).status,400);
+ assert.equal((await api('/catalog/templates/'+t.id,'DELETE',{version:1,reason:'旧版本'})).status,409);
+ succeeded(await api('/catalog/templates/'+t.id,'DELETE',{version:2,reason:'停止继续下发'}));assert.equal((await api('/catalog/preview','POST',{...updatedBody,version:3})).status,409);assert.equal(succeeded(await api('/catalog/distribution?template_id='+t.id)).length,2);
+});
+test('member and coupon templates distribute definitions with zero customer assets; issuing requires an authorized explicit member and is idempotent',async()=>{
+ const definitions=[{type:'member_level',payload:{name:'金卡配置',min_consume:500,discount:0.9}},{type:'recharge_plan',payload:{name:'千元充值',amount:1000,gift_amount:100}},{type:'coupon',payload:{name:'新客券',type:'cash',value:10,min_amount:50,valid_days:30}}];
+ const before=await inTenant(a.merchant.id,async()=>(await tenantQuery('SELECT (SELECT count(*) FROM members)::int AS members,(SELECT count(*) FROM coupons)::int AS coupons,(SELECT count(*) FROM asset_lots)::int AS lots')).rows[0]);
+ let coupon:any;
+ for(const definition of definitions){const t=succeeded(await api('/catalog/templates','POST',definition)),body={template_id:t.id,version:t.version,store_ids:[a.stores[0].id]},preview=succeeded(await api('/catalog/preview','POST',body));succeeded(await api('/catalog/distribute','POST',{...body,preview_hash:preview.preview_hash}));if(t.type==='coupon')coupon=succeeded(await api('/catalog/distribution?template_id='+t.id))[0]}
+ const after=await inTenant(a.merchant.id,async()=>(await tenantQuery('SELECT (SELECT count(*) FROM members)::int AS members,(SELECT count(*) FROM coupons)::int AS coupons,(SELECT count(*) FROM asset_lots)::int AS lots')).rows[0]);assert.deepEqual(after,before);
+ const member=succeeded(await h.api(a.token,a.stores[0].id,'/members','POST',{name:'领券客户'})),key=randomUUID(),path='/coupon-profiles/'+coupon.coupon_profile_id+'/issue';
+ const first=succeeded(await h.api(a.token,a.stores[0].id,path,'POST',{member_id:member.id},key));assert.equal(first.value,10);assert.equal(succeeded(await h.api(a.token,a.stores[0].id,path,'POST',{member_id:member.id},key)).id,first.id);
+ assert.equal((await h.api(b.token,b.stores[0].id,path,'POST',{member_id:member.id})).status,404);
+ assert.equal((await h.api(a.token,a.stores[1].id,path,'POST',{member_id:member.id})).status,404);
+ const foreign=succeeded(await h.api(b.token,b.stores[0].id,'/items','POST',{name:'外部商品',type:'product',price:1}));
+ const tpl=succeeded(await api('/catalog/templates','POST',{...config,payload:{...config.payload,name:'外键检查'}}));
+ await assert.rejects(inTenant(a.merchant.id,()=>tenantQuery("INSERT INTO template_bindings(store_id,template_id,type,item_id,template_version,last_applied) VALUES($1,$2,'item',$3,1,'{}')",[a.stores[0].id,tpl.id,foreign.id])),(e:any)=>e.code==='23503');
+});

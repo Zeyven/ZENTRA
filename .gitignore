@@ -1,0 +1,24 @@
+node_modules/
+dist/
+out/
+release/
+coverage/
+.runtime/
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.pem
+*.key
+*.p12
+artifacts/private/
+*.log
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+# 遗留的运行时/恢复指针文件（内容指向 .runtime/ 下产物，非源码，误置于仓库根）
+/3e1d3932313dffb85da7a875efabe9277907765afe216e42547cf90851ec0ace
+/64570948cf9e4be11e61de145b40f37262914fa86988581ca57461b963f80334
+# 本地调试/隧道探针等临时文件（非源码）
+/_*

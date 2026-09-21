@@ -1,0 +1,33 @@
+import {test,after} from 'node:test';import assert from 'node:assert/strict';
+import {harness,password,succeeded} from './helpers.js';
+import {defaultPages,defaultOperations,actionCeilings,routeOperation} from '@za-spa/contracts';
+let h:Awaited<ReturnType<typeof harness>>;after(async()=>{if(h)await h.stop()});
+test('operational grants separate read and write, preserve old clients, and enforce role/store ceilings',async()=>{
+ h=await harness({realtime:true});const a=await h.onboard(),b=await h.onboard(),s=a.stores[0].id,t=a.stores[1].id;
+ const owner=(p:string,method='GET',body?:any)=>h.api(a.token,s,p,method,body);
+ const user=succeeded(await owner('/users','POST',{username:'operations',name:'操作权限验收',password}));
+ const grant=(operations?:string[]|null,role='manager')=>owner('/users/'+user.id+'/grants','PUT',{grants:[{store_id:s,role,pages:defaultPages[role],actions:role==='manager'?['adjust']:[],...(operations===undefined?{}:{operations})}]});
+ succeeded(await grant());const token=succeeded(await h.api('',undefined,'/auth/login','POST',{merchant_code:a.merchant.code,username:'operations',password})).token;
+ const call=(p:string,body?:any,method='POST',store=s)=>h.api(token,store,p,method,body);
+ assert.deepEqual(succeeded(await call('/permissions/self',undefined,'GET')).operations.manager,defaultOperations.manager);
+ succeeded(await call('/settings',{store_address:'可维护'}));
+ succeeded(await grant([]));succeeded(await call('/settings',undefined,'GET'));
+ const paths=['/sessions','/sessions/1/items','/session-items/1/add-time','/session-items/1/end','/session-items/1/technician','/clocks/1/start','/rooms/1/status','/patrol','/payroll/2026-09/lock','/members','/reservations','/queue/take','/shifts/start','/settings','/items','/inventory/move','/technicians','/announcements'];
+ for(const path of paths){assert(routeOperation(path,'POST'),path);const r=await call(path,{});assert.equal(r.status,403,JSON.stringify(r));assert.equal(r.code,'OPERATION_FORBIDDEN',path)}
+ succeeded(await grant());assert.deepEqual(succeeded(await call('/permissions/self',undefined,'GET')).operations.manager,[],'omitted field must preserve explicit restrictions');
+ succeeded(await grant(['memberManage']));const member=succeeded(await call('/members',{name:'普通会员资料'}));
+ assert.equal((await call('/members',{id:member.id,name:'普通会员资料',discount:0.5})).code,'ACTION_FORBIDDEN');
+ assert.equal((await call('/members',{id:member.id,name:'普通会员资料',level:'高级会员'})).code,'ACTION_FORBIDDEN');
+ succeeded(await call('/members',{id:member.id,name:'允许更新联系方式',phone:'13900000000',level:member.level}));
+ succeeded(await grant(['settingsManage']));succeeded(await call('/settings',{store_phone:'1234'}));assert.equal((await call('/settings',{approval_thresholds:JSON.stringify({refund:0,discount:0,inventory_adjustment:0})})).code,'OWNER_REQUIRED');
+ assert.equal((await call('/settings',{},'POST',t)).status,403);assert.equal((await call('/settings',{},'POST',b.stores[0].id)).status,403);
+ succeeded(await owner('/users/'+user.id+'/grants','PUT',{grants:[{store_id:s,role:'manager',pages:['items'],actions:['adjust'],operations:['inventoryManage']},{store_id:t,role:'manager',pages:['items'],actions:['adjust'],operations:[]}]}));
+ assert.equal((await call('/inventory-transfers',{from_store_id:s,to_store_id:t,remark:'目标店权限验证',items:[{item_id:1,target_item_id:2,qty:1}]})).code,'TRANSFER_STORE_FORBIDDEN');
+ succeeded(await grant(null,'floor'));for(const action of ['reverseSettle','adjust','approve'])assert(!actionCeilings.floor.includes(action));
+ assert.equal((await grant(['settingsManage'],'floor')).status,400);
+ assert.equal((await owner('/users/'+user.id+'/grants','PUT',{grants:[{store_id:s,role:'floor',actions:['approve']}]})).status,400);
+ assert.equal((await call('/sessions/1/refund-deposit',{version:1,reason:'未授权退款'})).code,'ACTION_FORBIDDEN');
+ assert.equal((await call('/permissions',{pages:{},actions:{}},'PUT')).status,403);
+ succeeded(await owner('/users/'+user.id+'/grants','PUT',{grants:[{store_id:s,role:'floor',pages:['members'],operations:['addTime']}]}));
+ assert(!succeeded(await call('/permissions/self',undefined,'GET')).operations.floor.includes('addTime'),'operation cannot replace missing module');
+});

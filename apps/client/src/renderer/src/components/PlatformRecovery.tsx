@@ -1,0 +1,18 @@
+import {useEffect,useRef,useState} from 'react'
+import {AsyncButton} from './ui'
+import PasswordInput from './PasswordInput'
+export default function PlatformRecovery({merchantId,merchantName,request}:{merchantId:string;merchantName:string;request:(path:string,method?:string,body?:unknown)=>Promise<any>}){
+ const [state,setState]=useState<any>({archives:[],jobs:[]}),[archive,setArchive]=useState(''),[reason,setReason]=useState(''),[code,setCode]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState('')
+ const pending=useRef<any>(null),[unknown,setUnknown]=useState(false)
+ const path='/merchants/'+merchantId+'/recovery'
+ async function load(initial=false){try{const next=await request(path+(initial?'':'/status'));setState((current:any)=>({...current,...next}))}catch(e){setError(e instanceof Error?e.message:'读取恢复任务失败')}}
+ useEffect(()=>{void load(true);const timer=setInterval(()=>void load(),5000);return()=>clearInterval(timer)},[merchantId,request])
+ const preview=state.jobs.find((j:any)=>j.kind==='preview'&&j.status==='succeeded'&&j.archive_id===archive)
+ const running=state.jobs.some((j:any)=>['queued','running'].includes(j.status))
+ async function submit(kind:'preview'|'restore'){
+  const body=pending.current??{request_id:crypto.randomUUID(),kind,archive_id:archive,reason,...(kind==='restore'?{preview_id:preview?.id,confirmation_code:code,current_password:password}:{})}
+  pending.current=body;setUnknown(true);setError('')
+  try{await request(path,'POST',body);pending.current=null;setUnknown(false);setPassword('');await load()}catch(e){setError(e instanceof Error?e.message:'结果未确认，请核对原请求')}
+ }
+ return <section className="pc-panel space-y-3"><h3>单商家备份恢复 · {merchantName}</h3><p>先预检备份中的本商家数据，再确认恢复。恢复会以备份时间点的业务数据替换当前数据，账号密码保留；恢复后暂停营业，核对后再启用。无法恢复备份中不存在的数据。</p><p>设备网关授权不从旧备份恢复，需重新核对配置；结构版本不兼容的备份会拒绝执行。</p>{error&&<p role="alert" className="text-red-700">{error}</p>}<fieldset disabled={unknown||running} className="space-y-3"><label className="block">选择备份<select className="input" value={archive} onChange={e=>setArchive(e.target.value)}><option value="">请选择</option>{state.archives.map((a:any)=><option value={a.id} key={a.id}>{new Date(a.created_at).toLocaleString()} · {a.id}</option>)}</select></label>{!state.archives.length&&<p>暂无可用备份，或恢复服务尚未完成同步。</p>}<label className="block">恢复原因<input className="input" value={reason} onChange={e=>setReason(e.target.value)}/></label><AsyncButton disabled={!archive||reason.trim().length<2} className="btn-secondary" onClick={()=>submit('preview')}>验证备份并预览</AsyncButton>{preview&&<><p>预检完成：{Object.entries(preview.result.counts).filter(([,n])=>Number(n)>0).map(([t,n])=>`${t}: ${n}`).join('；')}</p><label className="block">确认目标商家编号<input className="input" value={code} onChange={e=>setCode(e.target.value)}/></label><label className="block">当前平台密码<PasswordInput className="input" value={password} onChange={e=>setPassword(e.target.value)}/></label><AsyncButton className="btn-primary" disabled={!code||!password} onClick={()=>submit('restore')}>确认按此备份恢复商家数据</AsyncButton></>}</fieldset>{unknown&&<><AsyncButton className="btn-secondary" onClick={()=>submit(pending.current.kind)}>核对原恢复请求</AsyncButton><button className="btn-ghost" onClick={()=>{pending.current=null;setUnknown(false);setPassword('');void load()}}>退出填写并查看任务状态</button></>}<div>{state.jobs.map((j:any)=><div className="border rounded p-3" key={j.id}><strong>{j.kind==='preview'?'备份预检':'数据恢复'} · {({queued:'等待执行',running:'执行中',succeeded:'已完成',failed:'失败'} as any)[j.status]}</strong><p>{j.archive_id}</p>{j.error&&<p className="text-red-700">{j.error}</p>}{j.result?.rollback_archive&&<p>恢复前回滚备份：{j.result.rollback_archive}</p>}</div>)}</div></section>
+}

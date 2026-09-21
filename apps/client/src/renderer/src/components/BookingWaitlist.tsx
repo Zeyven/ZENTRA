@@ -1,0 +1,16 @@
+import {useCallback,useState} from 'react'
+import {remote,isRemoteFailure} from '../api/transport'
+import {useAutoRefresh} from '../hooks/useAutoRefresh'
+import {useAuth,canWriteBusiness} from '../store/auth'
+import {AsyncButton,Modal,EmptyState} from './ui'
+import {fmtDateTime} from '../utils/format'
+const status:Record<string,string>={waiting:'等待名额',offered:'等待顾客确认',converted:'已确认预约',expired:'已过期',cancelled:'已取消'}
+export default function BookingWaitlist(){
+ const [open,setOpen]=useState(false),[rows,setRows]=useState<any[]>([]),[error,setError]=useState(''),[target,setTarget]=useState<any>(null),[reason,setReason]=useState(''),[before,setBefore]=useState<number>(),[pages,setPages]=useState<Array<number|undefined>>([])
+ const realm=useAuth(s=>s.realm),merchant=useAuth(s=>s.merchant),writable=canWriteBusiness()
+ const load=useCallback(async()=>{if(!open)return;try{setRows(await remote<any[]>('/api/merchant/v1/booking-waitlist'+(before?'?before='+before:'')))}catch(e){setError(e instanceof Error?e.message:'候补读取失败')}},[open,before]);useAutoRefresh(load)
+ async function mutate(path:string,body:unknown){setError('');const result=await remote<any>('/api/merchant/v1/booking-waitlist'+path,{method:'POST',body:JSON.stringify(body)});if(isRemoteFailure(result)){setError(result.msg);return false}await load();return true}
+ return <><button className="btn-secondary" onClick={()=>setOpen(true)}>查看候补</button><Modal open={open} title="预约候补" onClose={()=>setOpen(false)}>
+  <p className="text-sm text-gray-500 mb-4">后台按时间顺序匹配名额。顾客在原页面确认，15 分钟未确认释放名额；未发送短信。</p>{error&&<p role="alert" className="text-red-600">{error}</p>}<AsyncButton className="btn-secondary mb-3" disabled={!writable} onClick={()=>mutate('/scan',{})}>检查空余名额</AsyncButton><div className="overflow-x-auto"><table className="table w-full"><thead><tr><th>顾客</th><th>期望时间</th><th>项目</th><th>状态</th><th>操作</th></tr></thead><tbody>{rows.map(row=><tr key={row.id}><td>{row.customer_name}<div className="text-xs">{row.customer_phone} · {row.people} 位</div></td><td>{fmtDateTime(row.preferred_start)}</td><td>{row.service_name||'未指定'}<div>{row.technician_name||'不限技师'}</div></td><td>{status[row.status]??row.status}</td><td>{['waiting','offered'].includes(row.status)&&<button className="btn-secondary" disabled={!writable} onClick={()=>{setTarget(row);setReason('')}}>取消候补</button>}</td></tr>)}</tbody></table>{!rows.length&&<EmptyState text="暂无候补" />}</div><div className="flex gap-3 mt-3"><button className="btn-secondary" disabled={!pages.length} onClick={()=>{setBefore(pages[pages.length-1]);setPages(p=>p.slice(0,-1))}}>上一页</button><button className="btn-secondary" disabled={rows.length<100} onClick={()=>{setPages(p=>[...p,before]);setBefore(rows[rows.length-1].id)}}>下一页</button></div>
+ </Modal><Modal open={!!target} title="取消候补" onClose={()=>setTarget(null)} footer={<AsyncButton className="btn-primary" disabled={!reason.trim()} onClick={async()=>{if(await mutate('/'+target.id+'/cancel',{version:target.version,reason:reason.trim()}))setTarget(null)}}>确认取消候补</AsyncButton>}><label>取消原因<textarea className="input w-full" maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert" className="text-red-600">{error}</p>}</Modal></>
+}

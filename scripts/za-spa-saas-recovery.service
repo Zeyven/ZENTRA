@@ -1,0 +1,19 @@
+[Unit]
+Description=ZA Thera authorized single-merchant recovery worker
+After=postgresql@16-za_saas.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /opt/za-spa-saas/operator/recovery-worker.py
+Environment=SAAS_RECOVERY_DATABASE=za_spa_saas
+UMask=0077
+CPUQuota=10%
+MemoryMax=512M
+TimeoutStartSec=1800
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/za-spa-saas/backups /opt/za-spa-saas/operator
+

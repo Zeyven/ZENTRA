@@ -1,0 +1,96 @@
+{
+  "status": "partial-evidence-contract",
+  "transport": {
+    "network": "tcp",
+    "observed_port": 8032,
+    "encoding": "apache-thrift-binary-style",
+    "framing": "unframed-stream",
+    "request_method": "OnAskCall",
+    "response_method": "OnAnsweCall"
+  },
+  "rpc": {
+    "request": {
+      "field_1": "askId:i32",
+      "field_2": {
+        "field_1": "url:string",
+        "field_2": "head:map<string,string>",
+        "field_3": "body:binary"
+      }
+    },
+    "response": {
+      "field_1": "askId:i32",
+      "field_2": {
+        "field_1": "exstatus:i32",
+        "field_2": "exmsg:string",
+        "field_3": "head:map<string,string>",
+        "field_4": "data:json-binary"
+      }
+    }
+  },
+  "device_login_authorization": {
+    "datetime_format": "2006-01-02 15:04:05",
+    "regsn": "lowercase_hex(md5(vendor_registration_code + datetime))",
+    "local_cache_key": "HKLM\\SOFTWARE\\Eissoft\\HARD\\LOCAL; value name is the device identifier supplied to getDeviceRegCode",
+    "registration_code": "vendor-provisioned 32-character value; not derivable from the public protocol",
+    "implementation": "vendor-login.mjs requires the provisioned value and does not call the vendor provisioning service"
+  },
+  "menu_assembly": {
+    "source": "HKLM\\SOFTWARE\\Eissoft\\HARD\\Cache; SaasTenantResource",
+    "filters": ["current tenant", "BATH or FOOT business type", "device category 7", "parent-child resource relation"],
+    "ordering": "numeric SortOrder ascending",
+    "payload": "selected child Url values form the device menu array; vendor-menu.mjs parses and reserializes each action rather than trusting raw JSON fragments",
+    "missing_input": "actual tenant resource Url values containing pgid/funid definitions"
+  },
+  "menu_operation_relations": {
+    "basis": "1107 request records across eight supplied dates; raw merchant identifiers omitted",
+    "same_pair": [
+      ["CheckHandCode", "ReportClock"],
+      ["CheckJSCode", "GetTecQueryList:first-record"],
+      ["GetItemInfo", "AddClock:item-record"]
+    ],
+    "two_record_operations": {
+      "GetTecQueryList": "technician-check pair plus technician-list pair",
+      "AddClock": "item pair plus add-clock action pair"
+    },
+    "distinct_pairs": ["CloseClock", "GetRoomTec", "GetWaitRoom", "GetItemGradeInfo", "GetCallServerInfo"]
+  },
+  "message_id_reuse": {
+    "basis": "28 supplied Commlog files; aggregate-only inspect_message_ids.py output",
+    "observed": "MSG_ID can repeat across days for ReportClock and CheckHandCode with changed request bodies; no same-day/device/room repeat was observed in these files",
+    "implication": "MSG_ID is not a globally unique business transaction or safe sole idempotency key; production writes require a ZA Thera transaction key and durable deduplication independent of this header"
+  },
+  "operations": {
+    "SystemDeviceLogin": { "body": "null", "classification": "authorization-dependent" },
+    "SystemClockInfo": { "body": "null", "classification": "verified-read-shape" },
+    "SystemUserLogin": { "body": { "id": "string" }, "classification": "authorization-dependent" },
+    "HeadBeat": { "body": "zero-byte binary; not a JSON string", "classification": "session-dependent" },
+    "CheckHandCode": { "body": [{ "pgid": "string", "funid": "string", "data": { "bh": "string", "id": "string" } }], "classification": "menu-dependent" },
+    "CheckJSCode": { "body": [{ "pgid": "string", "funid": "string", "data": { "bh": "string" } }], "classification": "menu-dependent" },
+    "ReportClock": { "body": [{ "pgid": "string", "funid": "string", "data": { "array": ["{\\\"bh\\\":\\\"string\\\",\\\"mc\\\":\\\"string\\\"}"] } }], "classification": "write-disabled" },
+    "CloseClock": { "body": [{ "pgid": "string", "funid": "string", "data": null }], "classification": "write-disabled" },
+    "GetItemInfo": { "body": [{ "pgid": "string", "funid": "string", "data": null }], "classification": "menu-dependent" },
+    "GetRoomTec": { "body": [{ "pgid": "string", "funid": "string", "data": null }], "classification": "menu-dependent" },
+    "AddClock": { "body": "two menu-selected operation records; see request-shapes.evidence.json", "classification": "write-disabled" },
+    "GetWaitRoom": { "body": [{ "pgid": "string", "funid": "string", "data": null }], "classification": "menu-dependent" },
+    "GetItemGradeInfo": { "body": [{ "pgid": "string", "funid": "string", "data": null }], "classification": "menu-dependent" },
+    "GetCallServerInfo": { "body": [{ "pgid": "string", "funid": "string", "data": null }], "classification": "menu-dependent" }
+  },
+  "response_shapes": {
+    "basis": "current-firmware Commlog 2026-09-13; structural extraction only, no response values retained",
+    "SystemDeviceLogin": {"code":"number","msg":"string","data":{"company":"string","datetime":"string","exittime":"number","freshtime":"number","mainmenu":"object","menu":"array on wire; logs contain pre-replacement string placeholder","outtime":"number","regsn":"string","roomname":"string","support":"string","welcome":"string"}},
+    "SystemClockInfo": {"code":"number","msg":"string","data":{"status":"string","clock":"array of t1,t2,t3,t4,t5 strings"}},
+    "SystemUserLogin": {"code":"number","msg":"string","data":{"optid":"string","optname":"string","root":"string array"}},
+    "CheckHandCode": {"code":"number","msg":"string","data":"array of bh,mc strings"},
+    "CheckJSCode": {"code":"number","msg":"string","data":{"bh":"string","id":"string"}},
+    "GetTecQueryList": {"code":"number","msg":"string","data":"array of bh,mc strings"},
+    "ReportClock": {"success":"code:number,msg:string,data:string","failure":"msg:string,data:string; no code"},
+    "CloseClock": {"code":"number","msg":"string","data":"string"}
+  },
+  "unresolved": [
+    "authorized provisioning of the 32-character vendor registration code",
+    "SaasTenantResource menu contents and pgid/funid mapping",
+    "current firmware IDL and compatibility promise",
+    "production write semantics and idempotency",
+    "real TCP packet boundary behavior"
+  ]
+}

@@ -1,0 +1,33 @@
+[Unit]
+Description=ZA Thera independent SaaS API
+After=network.target postgresql@16-za_saas.service
+Requires=postgresql@16-za_saas.service
+
+[Service]
+Type=simple
+User=za-spa-saas
+Group=za-spa-saas
+WorkingDirectory=/opt/za-spa-saas/current
+EnvironmentFile=/opt/za-spa-saas/production.env
+ExecStart=/opt/za-spa-saas/runtime/node-v24.19.0-linux-x64/bin/node apps/server/dist/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+MemoryMax=768M
+CPUQuota=60%
+TasksMax=128
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
+LimitNOFILE=4096
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=100
+
+[Install]
+WantedBy=multi-user.target

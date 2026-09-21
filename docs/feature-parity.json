@@ -1,0 +1,3039 @@
+[
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/invite-codes",
+    "status": "implemented_backend_verified",
+    "replacement": "/api/platform/v1/merchants/:id/invite/reissue",
+    "evidence": [
+      "tests/owner-invites.test.ts",
+      "docs/OWNER-INVITE-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/invite-codes",
+    "status": "implemented_backend_verified",
+    "replacement": "/api/platform/v1/merchants/:id/invite",
+    "evidence": [
+      "tests/owner-invites.test.ts",
+      "docs/OWNER-INVITE-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/invite-codes/:id",
+    "status": "implemented_backend_verified",
+    "replacement": "/api/platform/v1/merchants/:id/invite/revoke",
+    "evidence": [
+      "tests/owner-invites.test.ts",
+      "docs/OWNER-INVITE-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/permissions/self",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts",
+      "tests/owner-invites.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/permissions",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts",
+      "tests/owner-invites.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/permissions",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts",
+      "tests/owner-invites.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/system/overview",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts",
+      "tests/owner-invites.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/register",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/mfa/enroll/start",
+    "status": "legacy_identity_protocol_not_carried_forward",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "独立平台与商家账号契约；本版本未实现多因素认证"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/mfa/enroll/finish",
+    "status": "legacy_identity_protocol_not_carried_forward",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "独立平台与商家账号契约；本版本未实现多因素认证"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/session",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "auth",
+    "method": "GET",
+    "path": "/session",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "auth",
+    "method": "DELETE",
+    "path": "/session",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/session/store",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/realtime.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "booking-payments",
+    "method": "GET",
+    "path": "/providers",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "booking-payments",
+    "method": "PUT",
+    "path": "/providers/:provider",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "booking-payments",
+    "method": "GET",
+    "path": "/booking/orders",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "booking-payments",
+    "method": "GET",
+    "path": "/booking/refunds",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "booking-payments",
+    "method": "GET",
+    "path": "/booking/reconciliation",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "booking-payments",
+    "method": "POST",
+    "path": "/:provider/webhook",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "catalog",
+    "method": "GET",
+    "path": "/templates",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/catalog/templates",
+    "evidence": [
+      "tests/templates.test.ts",
+      "docs/TEMPLATES-AND-PERMISSIONS.md",
+      "tests/browser/templates.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "catalog",
+    "method": "POST",
+    "path": "/templates",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/catalog/templates",
+    "evidence": [
+      "tests/templates.test.ts",
+      "docs/TEMPLATES-AND-PERMISSIONS.md",
+      "tests/browser/templates.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "catalog",
+    "method": "DELETE",
+    "path": "/templates/:id",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/catalog/templates/:id",
+    "evidence": [
+      "tests/templates.test.ts",
+      "docs/TEMPLATES-AND-PERMISSIONS.md"
+    ],
+    "ui_status": "pending"
+  },
+  {
+    "module": "catalog",
+    "method": "POST",
+    "path": "/distribute",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/catalog/distribute",
+    "evidence": [
+      "tests/templates.test.ts",
+      "docs/TEMPLATES-AND-PERMISSIONS.md",
+      "tests/browser/templates.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "catalog",
+    "method": "GET",
+    "path": "/distribution",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/catalog/distribution",
+    "evidence": [
+      "tests/templates.test.ts",
+      "docs/TEMPLATES-AND-PERMISSIONS.md",
+      "tests/browser/templates.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "clocks",
+    "method": "GET",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/clock-jobs.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "clocks",
+    "method": "POST",
+    "path": "/settings",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/clock-jobs.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "clocks",
+    "method": "GET",
+    "path": "/:id/events",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/clock-jobs.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "clocks",
+    "method": "POST",
+    "path": "/:id/:action",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/clock-jobs.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "dashboard",
+    "method": "GET",
+    "path": "/dashboard",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/browser/onboarding.spec.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "integrations",
+    "method": "GET",
+    "path": "/connections",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "integrations",
+    "method": "PUT",
+    "path": "/connections/:channel",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "integrations",
+    "method": "GET",
+    "path": "/orders",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "integrations",
+    "method": "POST",
+    "path": "/:channel/webhook",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/snapshot",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/refund-deposit",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/items",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/checkout",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/reverse-checkout",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/session-items/:id/end",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/technicians/:id/clock",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/members",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/orders",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/orders/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/session-items/:id/refund",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/session-items/:id/gift",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/session-items/:id/price",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/session-items/:id/add-time",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/session-items/:id/technician",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/change-room",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/bind-member",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/discount",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/suspend",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/resume",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/sessions/:id/cancel",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/order-groups/link",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/order-groups/:orderId",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/order-groups/:orderId",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/queue",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/queue/take",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/queue/:id/call",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/queue/:id/done",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/queue/:id/cancel",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/coupons",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/coupons",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members/wake",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/members/wake",
+    "evidence": [
+      "tests/member-wake.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MEMBER-WAKE-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/coupons/:id/use",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/rooms",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/rooms/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/rooms/:id/status",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/technicians",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/technicians/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/attendance",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/attendance/monthly",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/items",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/technicians/:id/skills",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/technician-skills",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/items/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/members/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members/:id/adjust",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/members/:id/adjust",
+    "evidence": [
+      "tests/member-assets.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MEMBER-ASSET-ACCEPTANCE.md"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/members/analysis",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/members/segments",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/members/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members/recharge",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/members/recharge",
+    "evidence": [
+      "tests/member-assets.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MEMBER-ASSET-ACCEPTANCE.md"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members/:id/reverse-recharge",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/members/:id/reverse-recharge",
+    "evidence": [
+      "tests/member-assets.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MEMBER-ASSET-ACCEPTANCE.md"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/wristbands",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/wristbands/resolve",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/wristbands/:id/binding",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/wristbands",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/wristbands/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/categories",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/categories/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/inventory",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/marketing/workflows",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/marketing/workflows",
+    "evidence": [
+      "tests/marketing.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MARKETING-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "PUT",
+    "path": "/marketing/workflows/:id",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/marketing/workflows/:id",
+    "evidence": [
+      "tests/marketing.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MARKETING-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/marketing/run",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/marketing/run",
+    "evidence": [
+      "tests/marketing.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MARKETING-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/marketing/outbox",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/marketing/outbox",
+    "evidence": [
+      "tests/marketing.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MARKETING-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/marketing/outbox/:id/retry",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/marketing/outbox/:id/retry",
+    "evidence": [
+      "tests/marketing.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/MARKETING-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/inventory/overview",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/service-consumables/:serviceId",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "PUT",
+    "path": "/service-consumables/:serviceId",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/inventory/move",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/inventory/count",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/suppliers",
+    "status": "module_regression_verified",
+    "new_path": "/api/merchant/v1/suppliers",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "note": "已验证选择和新增供应商；完整资料维护仍待验收。",
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/suppliers",
+    "status": "module_regression_verified",
+    "new_path": "/api/merchant/v1/suppliers",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "note": "已验证选择和新增供应商；完整资料维护仍待验收。",
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/purchase-orders",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/purchase-orders",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/supply.test.ts",
+      "tests/browser/supply.spec.ts",
+      "docs/INVENTORY-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/purchase-orders/:id",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/purchase-orders/:id",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/supply.test.ts",
+      "tests/browser/supply.spec.ts",
+      "docs/INVENTORY-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/purchase-orders",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/purchase-orders",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/supply.test.ts",
+      "tests/browser/supply.spec.ts",
+      "docs/INVENTORY-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/purchase-orders/:id/receive",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/purchase-orders/:id/receive",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/supply.test.ts",
+      "tests/browser/supply.spec.ts",
+      "docs/INVENTORY-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reservations",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/reservations",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/reservations/:id/status",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/reservations/:id/arrive-open",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/reservations/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/shifts",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/shifts/start",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/shifts/end",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/member-levels",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/member-levels",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/member-levels/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/recharge-plans",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/recharge-plans",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/recharge-plans/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/members/:id/points",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members/:id/points-exchange",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/technicians/queue",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/wristbands/:id/deposit",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/wine-storage",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/wine-storage",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/wine-storage/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/announcements",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/announcements",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/announcements/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reservation-staff",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/reservations/:id/staff",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/patrol",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/patrol",
+    "evidence": [
+      "tests/patrol.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/PATROL-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/patrols",
+    "status": "verified_test_environment",
+    "replacement": "/api/merchant/v1/patrols",
+    "evidence": [
+      "tests/patrol.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/PATROL-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/swipes",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/payroll/:month",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/payroll/:month",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/payroll/:month/lock",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/payroll/:month/lock",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/salaries",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/salaries",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/pricing-rules",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/pricing-rules",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/pricing-rules",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/pricing-rules",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/pricing-rules/:id",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/pricing-rules/:id",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/pricing-rules/preview",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/pricing-rules/preview",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md"
+    ],
+    "ui_status": "pending_full_acceptance"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/commission-rules",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/commission-rules",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/commission-rules",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/commission-rules",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "DELETE",
+    "path": "/commission-rules/:id",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/commission-rules/:id",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/commission-rules/preview",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/commission-rules/preview",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md"
+    ],
+    "ui_status": "pending_full_acceptance"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/analysis",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/analysis",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/growth",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/growth",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/executive-brief",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/executive-brief",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/profit",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/profit",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md"
+    ],
+    "ui_status": "pending_full_acceptance"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/alerts",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/daily",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/daily",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/technicians",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/technicians",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/members",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/members",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/flow",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/flow",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/verifications",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/verifications",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/monthly",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/monthly",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md"
+    ],
+    "ui_status": "pending_full_acceptance"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/rooms",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/rooms",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/reports/cashiers",
+    "status": "api_verified",
+    "new_path": "/api/merchant/v1/reports/cashiers",
+    "evidence": [
+      "tests/reports-rules.test.ts",
+      "docs/REPORTING.md",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "ui_status": "browser_verified_core_flow"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/settings/cashier",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/settings",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/settings",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/approvals",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/approvals/:id/review",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/audit-events",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/members/:id/status",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/audit-logs",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/operations.test.ts",
+      "tests/member-benefits.test.ts",
+      "tests/wallet.test.ts",
+      "tests/shifts.test.ts",
+      "tests/supply.test.ts",
+      "tests/wristbands.test.ts",
+      "tests/browser/onboarding.spec.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/realtime-token",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/realtime.test.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "统一已认证 Socket.IO 会话与商家、门店事件游标"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/realtime-events",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/realtime.test.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "统一已认证 Socket.IO 会话与商家、门店事件游标"
+  },
+  {
+    "module": "leisure",
+    "method": "GET",
+    "path": "/export",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/exports.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "/api/merchant/v1/exports/business"
+  },
+  {
+    "module": "leisure",
+    "method": "POST",
+    "path": "/import",
+    "status": "replaced_by_scoped_operator_restore",
+    "evidence": [
+      "scripts/saas-tenant-restore.py",
+      "scripts/exercise-tenant-restore.py",
+      "tests/restoration-lock.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "停用目标商家后，由独立离线恢复工具先备份再原子恢复；没有业务端全库覆盖入口"
+  },
+  {
+    "module": "maintenance",
+    "method": "GET",
+    "path": "/summary",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/maintenance.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "maintenance",
+    "method": "GET",
+    "path": "/logs",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/maintenance.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "maintenance",
+    "method": "POST",
+    "path": "/export",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/exports.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "/api/merchant/v1/exports/business"
+  },
+  {
+    "module": "maintenance",
+    "method": "GET",
+    "path": "/logs/:source/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/maintenance.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "GET",
+    "path": "/stores",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "GET",
+    "path": "/booking/options",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/quote",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/reservations",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "GET",
+    "path": "/booking/reservations/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/reservations/:id/payment-order",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/reservations/:id/reschedule",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/reservations/:id/cancel",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/reservations/:id/confirm",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/booking/waitlist",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "GET",
+    "path": "/booking/waitlist/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "GET",
+    "path": "/queue/waiting",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/queue/take",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/public-booking.test.ts",
+      "tests/reservations-queue.test.ts",
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "public",
+    "method": "GET",
+    "path": "/coupons/center",
+    "status": "verified_test_environment",
+    "replacement": "/api/public/v1/:merchantCode/:storeCode/coupons/center",
+    "evidence": [
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/COUPON-CLAIMS-ACCEPTANCE.md"
+    ],
+    "notes": "SMS verification reserved; staff in-person verified invitation implemented"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/coupons/claim",
+    "status": "verified_test_environment",
+    "replacement": "/api/public/v1/:merchantCode/:storeCode/coupons/claim",
+    "evidence": [
+      "tests/coupon-claims.test.ts",
+      "tests/browser/member-assets.spec.ts",
+      "docs/COUPON-CLAIMS-ACCEPTANCE.md"
+    ],
+    "notes": "SMS verification reserved; staff in-person verified invitation implemented"
+  },
+  {
+    "module": "public",
+    "method": "POST",
+    "path": "/swipe",
+    "status": "reserved_integration_scope_verified",
+    "evidence": [
+      "tests/integrations.test.ts",
+      "docs/RESERVED-INTEGRATIONS.md"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "按用户授权范围保留独立渠道或设备接口，未接入状态不得模拟支付、核销或设备成功"
+  },
+  {
+    "module": "room-warnings",
+    "method": "GET",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "room-warnings",
+    "method": "POST",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "room-warnings",
+    "method": "POST",
+    "path": "/broadcast",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "room-warnings",
+    "method": "POST",
+    "path": "/:id/:action",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/clock-operations.test.ts",
+      "tests/browser/clock-operations.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例"
+  },
+  {
+    "module": "stores",
+    "method": "GET",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "stores",
+    "method": "POST",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "stores",
+    "method": "PUT",
+    "path": "/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "stores",
+    "method": "DELETE",
+    "path": "/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/browser/onboarding.spec.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "users",
+    "method": "GET",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "users",
+    "method": "POST",
+    "path": "/",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "users",
+    "method": "DELETE",
+    "path": "/:id",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  },
+  {
+    "module": "users",
+    "method": "POST",
+    "path": "/:id/password",
+    "status": "module_regression_verified",
+    "evidence": [
+      "tests/access.test.ts",
+      "tests/page-permissions.test.ts"
+    ],
+    "verification_scope": "对应新 SaaS 模块的业务与隔离回归；不表示保留旧协议或每条接口均有独立用例",
+    "replacement": "新平台开通、一次性老板邀请、独立账号与门店授权；停用保留历史，原权限协议不兼容"
+  }
+]

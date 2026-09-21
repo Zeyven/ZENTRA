@@ -1,0 +1,50 @@
+appId: cn.zephael.zaspa.saas
+productName: ZA Thera｜澜序
+executableName: ZA-Thera
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/main/**
+  - out/preload/**
+  - out/renderer/**
+  - package.json
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+asar: true
+npmRebuild: false
+electronDist: ../../node_modules/electron/dist
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+win:
+  icon: build/icon.ico
+  # 代码签名门禁（待启用，详见 docs/AUTOMATIC-UPDATES.md）：取得 Windows 代码签名证书后，取消下面两行注释并填写证书 Subject 中的组织名。
+  # 未设置 publisherName 时 electron-updater 会跳过更新包签名校验；forceCodeSigning 为顶层键，此处就近注释，启用时请移到文件顶层。
+  # publisherName: <证书 Subject 中的组织名>
+  # forceCodeSigning: true
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ZA-Thera-${version}-Windows-${arch}.${ext}
+nsis:
+  include: build/installer.nsh
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ZA Thera｜澜序
+  uninstallDisplayName: ZA Thera｜澜序
+  deleteAppDataOnUninstall: false
+publish:
+  provider: generic
+  url: https://saas.zephael.cn/updates/windows/stable
+  channel: latest

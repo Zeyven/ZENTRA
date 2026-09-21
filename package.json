@@ -1,0 +1,30 @@
+{
+  "name": "za-spa-saas",
+  "version": "1.0.22",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev:server": "npm run dev -w @za-spa/server",
+    "dev:web": "npm run dev:web -w @za-spa/client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build -w @za-spa/contracts && npm run build -w @za-spa/server && npm run build -w @za-spa/client",
+    "prepare": "npm run build -w @za-spa/contracts",
+    "pretest": "npm run build -w @za-spa/contracts",
+    "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
+    "check:release-schema": "node scripts/release-schema-check.mjs",
+    "test:core": "node --env-file=.runtime/test.env --import tsx --test --test-concurrency=1 tests/operations.test.ts tests/clock-operations.test.ts tests/member-assets.test.ts tests/operational-permissions.test.ts tests/staff-permissions.test.ts tests/realtime.test.ts tests/store-management.test.ts tests/wallet.test.ts tests/action-result.test.ts tests/clock-room-display.test.ts tests/release-schema-check.test.mjs tests/operations-ux.test.ts tests/room-operations.test.ts tests/shifts.test.ts tests/reports-rules.test.ts tests/wristband-management.test.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.3.1",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  }
+}

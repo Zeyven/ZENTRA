@@ -1,0 +1,10 @@
+[Unit]
+Description=Process authorized ZA Thera recovery tasks
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=15
+Unit=za-spa-saas-recovery.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,41 @@
+{
+  "name": "@za-spa/client",
+  "version": "1.0.22",
+  "description": "ZA Thera｜澜序 - 洗浴娱乐行业智慧运营系统",
+  "main": "./out/main/index.js",
+  "author": "ZA Thera",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.web.config.ts",
+    "build": "electron-vite build",
+    "build:web": "vite build --config vite.web.config.ts",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
+    "package": "node ../../scripts/build-installer-guard.mjs && electron-vite build && electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "@za-spa/contracts": "1.0.11",
+    "electron-updater": "6.8.9",
+    "qrcode": "^1.5.4",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "autoprefixer": "^10.4.20",
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "postcss": "^8.4.41",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vite": "7.3.6",
+    "zustand": "^4.5.5"
+  },
+  "private": true
+}

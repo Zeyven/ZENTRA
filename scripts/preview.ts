@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {resolve} from 'node:path';
+assert.equal(process.env.NODE_ENV,'test');
+assert.equal(new URL(process.env.DATABASE_URL!).pathname,'/za_spa_saas_test');
+process.env.PORT='8793';process.env.PUBLIC_ORIGIN='http://127.0.0.1:5178';
+process.env.VITE_DEV_API_TARGET='http://127.0.0.1:8793';process.env.VITE_PREVIEW='1';
+await import('../apps/server/src/index.js');
+const {createServer}=await import('vite');
+const clientDirectory=resolve('apps/client');process.chdir(clientDirectory);
+const web=await createServer({configFile:resolve('vite.web.config.ts'),server:{host:'127.0.0.1',port:5178,strictPort:true}});
+await web.listen();console.log('ZA Thera test preview ready at http://127.0.0.1:5178');

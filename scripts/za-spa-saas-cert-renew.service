@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew only ZA Thera SaaS HTTPS certificate
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet --config-dir /opt/za-spa-saas/certbot --work-dir /opt/za-spa-saas/certbot-work --logs-dir /opt/za-spa-saas/certbot-logs --deploy-hook "/usr/sbin/nginx -t && /usr/bin/systemctl reload nginx"
+CPUQuota=10%
+MemoryMax=256M
