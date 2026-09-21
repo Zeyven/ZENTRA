@@ -57,7 +57,20 @@ ZENTRA 采用 [Elastic License 2.0](./LICENSE)，属于 **source available** 软
 
 你可以在许可证允许的范围内查看、运行、修改、自托管和进行商业开发，但不得将本软件本身作为向第三方提供主要功能的托管 / 管理服务。
 
+再发行或修改本项目时，应保留项目已有的许可、版权及 ZENTRA 归属标识。对于原软件已显示的品牌归属，可使用：
+
+```text
+Powered by ZENTRA
+```
+
+或中文：
+
+```text
+基于 ZENTRA
+```
+
 - [LICENSE](./LICENSE) — Elastic License 2.0 正文
+- [ATTRIBUTION](./ATTRIBUTION.md) — ZENTRA 标识保留规则
 - [许可证说明](./docs/license.md) — 中文通俗说明
 - [NOTICE](./NOTICE) — 品牌、版权与第三方声明
 
