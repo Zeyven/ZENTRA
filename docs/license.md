@@ -32,6 +32,28 @@ ELv2 的核心限制包括：
 
 如果未来需要将 ZENTRA 或相关软件作为面向第三方的托管 SaaS / Managed Service 提供，应另行取得商业授权。
 
+## ZENTRA 标识保留
+
+本项目包含以下 ZENTRA 归属标识：
+
+```text
+Powered by ZENTRA
+```
+
+中文界面可以使用：
+
+```text
+基于 ZENTRA
+```
+
+该标识作为项目随附的 licensor notice 使用。
+
+如果原版软件已经在图形界面或文本界面中显示该标识，修改版或再发行版本不得删除、隐藏、遮挡或将其处理为实际上不可阅读的状态。
+
+允许根据界面设计调整字体、大小、颜色和位置，但应保持合理可见，并且不得造成对所有权、赞助关系或官方认可的误导。
+
+详细规则见 [ZENTRA Attribution](../ATTRIBUTION.md)。
+
 ## 品牌与商标
 
 ELv2 不授予 ZENTRA、ZEYVEN 及其相关产品名称、标识、Logo 或视觉资产的商标权。
