@@ -107,5 +107,11 @@ describe('workspace project policy', () => {
         membership: member,
       }),
     ).toEqual({ allowed: false, reason: 'INSUFFICIENT_ROLE' });
+    expect(
+      workspacePolicy.authorize({ actor, workspaceId, action: 'run:read', membership: member }),
+    ).toEqual({ allowed: true });
+    expect(
+      workspacePolicy.authorize({ actor, workspaceId, action: 'run:create', membership: member }),
+    ).toEqual({ allowed: false, reason: 'INSUFFICIENT_ROLE' });
   });
 });

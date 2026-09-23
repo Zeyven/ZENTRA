@@ -3,9 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 import pg from 'pg';
 import { createClerkIdentityProvider } from '@ayra/auth';
-import type { ArtifactId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
+import type { ArtifactId, RunId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
 import { createApp } from '../src/app';
 import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artifacts';
+import { createRunAttempt, readRunAttempt } from '../src/runs';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -249,10 +250,86 @@ try {
     'Task draft creation failed or invented a Run',
   );
   const taskId = expectUuid(taskResponse.json().id);
+  const runClient = await pool.connect();
+  let runId: string;
+  try {
+    await runClient.query('BEGIN');
+    await runClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[0]),
+    ]);
+    const runInput = {
+      workspaceId: alpha as WorkspaceId,
+      taskId: taskId as TaskId,
+      attempt: 1,
+      idempotencyKey: randomUUID(),
+    };
+    const firstRun = await createRunAttempt(runClient, expectUuid(users[0]) as UserId, runInput);
+    runId = expectUuid(firstRun.id);
+    const replayedRun = await createRunAttempt(runClient, expectUuid(users[0]) as UserId, runInput);
+    check(
+      replayedRun.id === runId && replayedRun.status === 'PENDING',
+      'Run attempt replay changed identity or state',
+    );
+    check(
+      (await readRunAttempt(runClient, expectUuid(users[0]) as UserId, runId as RunId))?.id ===
+        runId,
+      'Owner could not read Run attempt',
+    );
+    await runClient.query('COMMIT');
+  } catch (error) {
+    await runClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    runClient.release();
+  }
+  const taskAfterRun = await call('integration-alice', 'GET', `/v1/tasks/${taskId}`);
+  check(
+    taskAfterRun.json().status === 'DRAFT' && taskAfterRun.json().currentRunId === null,
+    'Run record falsely advanced Task canonical state',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${runId}' AND event_type = 'run.created.v1';`,
+    ) === '1',
+    'Run idempotency replay duplicated outbox',
+  );
+  const rolledBackRun = expectUuid(
+    migrationSql(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';
+       INSERT INTO runs(workspace_id, task_id, attempt, status, created_by)
+       VALUES ('${alpha}', '${taskId}', 2, 'PENDING', '${expectUuid(users[0])}') RETURNING id;
+       ROLLBACK;`,
+    ),
+  );
+  check(
+    migrationSql(`SELECT count(*) FROM runs WHERE id = '${rolledBackRun}';`) === '0' &&
+      migrationSql(`SELECT count(*) FROM audit_events WHERE aggregate_id = '${rolledBackRun}';`) ===
+        '0' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${rolledBackRun}';`,
+      ) === '0',
+    'Rolled-back Run left entity or event behind',
+  );
+  const foreignRunClient = await pool.connect();
+  try {
+    await foreignRunClient.query('BEGIN');
+    await foreignRunClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[1]),
+    ]);
+    check(
+      (await readRunAttempt(foreignRunClient, expectUuid(users[1]) as UserId, runId as RunId)) ===
+        null,
+      'Bob read Alice Run without membership',
+    );
+  } finally {
+    await foreignRunClient.query('ROLLBACK');
+    foreignRunClient.release();
+  }
   const artifactKey = randomUUID();
   const artifactInput = {
     workspaceId: alpha as WorkspaceId,
     taskId: taskId as TaskId,
+    runId,
     title: 'Generated report metadata',
     objectRef: 'test-pending-object',
     provenance: { origin: 'integration-test' },
@@ -288,6 +365,7 @@ try {
   check(
     artifactRead.statusCode === 200 &&
       artifactRead.json().taskId === taskId &&
+      artifactRead.json().runId === runId &&
       !JSON.stringify(artifactRead.json()).includes('test-pending-object'),
     'Artifact metadata read failed or exposed object storage reference',
   );
@@ -1067,6 +1145,9 @@ try {
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM artifacts WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM runs WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM resources WHERE workspace_id IN (${workspaces
