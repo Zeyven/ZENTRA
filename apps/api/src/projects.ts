@@ -108,7 +108,7 @@ export function registerProjectRoutes(app: FastifyInstance, services: Services) 
     },
   );
 
-  app.get<{ Querystring: { workspaceId: string } }>(
+  app.get<{ Querystring: { workspaceId: string; archived?: string } }>(
     '/v1/projects',
     {
       schema: {
@@ -116,7 +116,10 @@ export function registerProjectRoutes(app: FastifyInstance, services: Services) 
           type: 'object',
           required: ['workspaceId'],
           additionalProperties: false,
-          properties: { workspaceId: { type: 'string', format: 'uuid' } },
+          properties: {
+            workspaceId: { type: 'string', format: 'uuid' },
+            archived: { type: 'string', enum: ['true', 'false'] },
+          },
         },
       },
     },
@@ -133,9 +136,10 @@ export function registerProjectRoutes(app: FastifyInstance, services: Services) 
         if (!decision.allowed) return denied(reply, decision.reason);
         const result = await client.query<ProjectRow>(
           `SELECT id, workspace_id, name, description, version, archived_at
-           FROM projects WHERE workspace_id = $1 AND archived_at IS NULL AND deleted_at IS NULL
+           FROM projects WHERE workspace_id = $1
+           AND ((archived_at IS NOT NULL) = $2) AND deleted_at IS NULL
            ORDER BY created_at DESC, id DESC`,
-          [workspaceId],
+          [workspaceId, request.query.archived === 'true'],
         );
         return { projects: result.rows.map(projectDto) };
       }),
@@ -218,4 +222,53 @@ export function registerProjectRoutes(app: FastifyInstance, services: Services) 
       });
     },
   );
+
+  for (const action of ['archive', 'restore'] as const) {
+    app.post<{ Params: { id: string }; Body: { version: number } }>(
+      `/v1/projects/:id/${action}`,
+      {
+        schema: {
+          params: uuidParam,
+          body: {
+            type: 'object',
+            required: ['version'],
+            additionalProperties: false,
+            properties: { version: { type: 'integer', minimum: 1 } },
+          },
+        },
+      },
+      async (request, reply) =>
+        runAuthorized(services, request, reply, async (client, actor) => {
+          const existing = await client.query<ProjectRow>(
+            `SELECT id, workspace_id, name, description, version, archived_at
+             FROM projects WHERE id = $1 AND deleted_at IS NULL`,
+            [request.params.id],
+          );
+          const project = existing.rows[0];
+          if (!project) return reply.code(404).send({ error: 'project_not_found' });
+          const role = await roleInWorkspace(client, actor, project.workspace_id);
+          const decision = workspacePolicy.authorize({
+            actor,
+            action: action === 'archive' ? 'project:archive' : 'project:restore',
+            workspaceId: project.workspace_id,
+            membership: role ? { workspaceId: project.workspace_id, role, status: 'ACTIVE' } : null,
+          });
+          if (!decision.allowed) return denied(reply, decision.reason);
+          if ((action === 'archive') !== (project.archived_at === null))
+            return reply.code(409).send({ error: 'invalid_project_state' });
+          const updated = await client.query<ProjectRow>(
+            `UPDATE projects
+             SET archived_at = ${action === 'archive' ? 'now()' : 'NULL'},
+                 version = version + 1, updated_by = $2
+             WHERE id = $1 AND version = $3 AND deleted_at IS NULL
+               AND archived_at IS ${action === 'archive' ? 'NULL' : 'NOT NULL'}
+             RETURNING id, workspace_id, name, description, version, archived_at`,
+            [project.id, actor, request.body.version],
+          );
+          const row = updated.rows[0];
+          if (!row) return reply.code(409).send({ error: 'version_conflict' });
+          return projectDto(row);
+        }),
+    );
+  }
 }

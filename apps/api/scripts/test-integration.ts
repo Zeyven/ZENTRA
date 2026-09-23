@@ -326,6 +326,14 @@ try {
     ).statusCode === 403,
     'MEMBER modified Project',
   );
+  check(
+    (
+      await call('integration-bob', 'POST', `/v1/projects/${projectId}/archive`, {
+        version: 2,
+      })
+    ).statusCode === 403,
+    'MEMBER archived Project',
+  );
   migrationSql(
     `UPDATE workspace_memberships SET status = 'SUSPENDED' WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
   );
@@ -398,6 +406,81 @@ try {
         `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${taskId}' AND event_type = '${eventType}';`,
       ) === '1',
       `Task ${eventType} outbox missing or duplicated`,
+    );
+  }
+  const archived = await call('integration-alice', 'POST', `/v1/projects/${projectId}/archive`, {
+    version: 2,
+  });
+  check(
+    archived.statusCode === 200 && archived.json().version === 3 && archived.json().archivedAt,
+    'Project archive failed',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/projects/${projectId}`)).statusCode === 404,
+    'Archived Project remained in active detail',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/projects?workspaceId=${alpha}`)).json().projects
+      .length === 0,
+    'Archived Project remained in active list',
+  );
+  check(
+    (
+      await call('integration-alice', 'GET', `/v1/projects?workspaceId=${alpha}&archived=true`)
+    ).json().projects[0]?.id === projectId,
+    'Archived Project missing from archive list',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        '/v1/tasks',
+        { ...taskInput, title: 'Too late' },
+        {
+          'idempotency-key': randomUUID(),
+        },
+      )
+    ).statusCode === 404,
+    'Task was created under archived Project',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/projects/${projectId}/archive`, {
+        version: 3,
+      })
+    ).statusCode === 409,
+    'Project archive repeated without state transition',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/projects/${projectId}/restore`, {
+        version: 2,
+      })
+    ).statusCode === 409,
+    'Stale Project restore succeeded',
+  );
+  const restored = await call('integration-alice', 'POST', `/v1/projects/${projectId}/restore`, {
+    version: 3,
+  });
+  check(
+    restored.statusCode === 200 &&
+      restored.json().version === 4 &&
+      restored.json().archivedAt === null,
+    'Project restore failed',
+  );
+  for (const eventType of ['project.archived.v1', 'project.restored.v1']) {
+    check(
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${projectId}' AND event_type = '${eventType}';`,
+      ) === '1',
+      `Project ${eventType} outbox missing or duplicated`,
+    );
+    check(
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${projectId}' AND action = '${eventType}';`,
+      ) === '1',
+      `Project ${eventType} audit missing or duplicated`,
     );
   }
   check(

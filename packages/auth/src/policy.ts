@@ -8,6 +8,8 @@ export type PolicyAction =
   | 'project:create'
   | 'project:read'
   | 'project:update'
+  | 'project:archive'
+  | 'project:restore'
   | 'task:create'
   | 'task:read'
   | 'task:update'
@@ -38,6 +40,8 @@ export const workspacePolicy: PolicyEngine = {
       (action === 'workspace:update' ||
         action === 'project:create' ||
         action === 'project:update' ||
+        action === 'project:archive' ||
+        action === 'project:restore' ||
         action === 'task:create' ||
         action === 'task:update' ||
         action === 'task:delete') &&
