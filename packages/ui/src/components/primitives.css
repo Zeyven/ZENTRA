@@ -1,0 +1,79 @@
+@import '@ayra/design-tokens/tokens.css';
+.ay-button {
+  font: 500 14px/1.3 var(--font-ui);
+  border-radius: var(--radius-control);
+  min-height: 44px;
+  padding: 12px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--motion-fast);
+  border: 1px solid transparent;
+}
+.ay-button--primary {
+  background: var(--accent);
+  color: white;
+}
+.ay-button--primary:hover {
+  background: #1a2a2f;
+}
+.ay-button--secondary {
+  background: transparent;
+  border-color: #b9bfc0;
+  color: var(--text);
+}
+.ay-button--secondary:hover {
+  background: var(--surface-subtle);
+}
+.ay-button--quiet {
+  background: transparent;
+  color: var(--text);
+  padding-left: 0;
+  padding-right: 0;
+}
+.ay-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ay-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+.ay-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  background: var(--surface);
+}
+.ay-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--secondary);
+}
+.ay-object h3 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 14px 0 8px;
+}
+.ay-object p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--secondary);
+}
+.ay-navigation {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.search-results [aria-selected='true'] {
+  background: var(--mist);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ay-button {
+    transition: none;
+  }
+}

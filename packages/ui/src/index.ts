@@ -1,1 +1,1 @@
-export { FoundationView, surfaces, type Surface } from './foundation';
+export { FoundationView, SurfaceIcon, surfaces, type Surface } from './foundation';

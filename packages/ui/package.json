@@ -5,7 +5,10 @@
   "name": "@ayra/ui",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./components": "./src/components/primitives.tsx",
+    "./icons": "./src/components/icons.tsx",
+    "./components.css": "./src/components/primitives.css"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -13,6 +16,7 @@
   },
   "dependencies": {
     "@ayra/design-tokens": "workspace:*",
+    "@phosphor-icons/react": "^2.1.10",
     "react": "19.2.3"
   }
 }

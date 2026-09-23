@@ -25,7 +25,7 @@ pnpm dev
 | Object store console | http://127.0.0.1:9001                      |
 | Worker               | 仅进程骨架，不接受或执行任务               |
 
-仅查看应用骨架可运行 `pnpm dev:web`，不代表完整本地环境验收。移动端：`pnpm --filter @ayra/mobile dev`。桌面原生：`pnpm --filter @ayra/desktop dev:native`。
+仅查看官网可运行 `pnpm dev:web`；桌面 UI 独立预览使用 `pnpm --filter @ayra/desktop dev`（http://127.0.0.1:1420），不代表完整本地环境验收。移动端：`pnpm --filter @ayra/mobile dev`。桌面原生：`pnpm --filter @ayra/desktop dev:native`。
 
 ## 验证
 
@@ -50,3 +50,9 @@ GitHub Actions 配置包括工程检查、真实 Compose 服务验证及 macOS/W
 - Compose 只供本地开发、端口仅监听 loopback。生产部署、密钥管理、Updater 签名与高风险操作均未开放。
 
 停止基础设施使用 `pnpm infra:down`，保留数据卷。M0 不自动删除用户数据、修改白皮书、确定 OPEN 商业参数或调用付费模型。
+
+## Website 与 Desktop UI
+
+官网仅提供 `/`、`/product`、`/download`、`/security`，承担产品介绍与下载入口。原 Web Chat/Work/Build/Projects/Settings 路由已移除；实际工作空间属于桌面应用。安装包尚未发布，下载页明确显示不可用。
+
+桌面有 Home、Chat、Work、Build、Projects、Activity、Settings，支持页面搜索、上下文收起、分类切换与当前页面草稿。项目、账户、模型和任务服务未连接，不伪造执行结果。设计与验收记录见 `design-system/`、`design-qa.md` 和 `docs/implementation/UI.md`。
