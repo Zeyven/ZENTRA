@@ -16,6 +16,7 @@ export type AuthorizedWork<T> = (
 ) => Promise<T>;
 
 class RevokedSessionError extends Error {}
+export class InactiveProjectError extends Error {}
 
 async function withActor<T>(pool: Pool, session: VerifiedSession, work: AuthorizedWork<T>) {
   const client = await pool.connect();
@@ -67,6 +68,8 @@ export async function runAuthorized<T>(
   } catch (error) {
     if (error instanceof RevokedSessionError)
       return reply.code(401).send({ error: 'session_revoked' });
+    if (error instanceof InactiveProjectError)
+      return reply.code(404).send({ error: 'project_not_found' });
     request.log.error({ err: error }, 'Account database operation failed');
     return reply.code(503).send({ error: 'service_unavailable' });
   }

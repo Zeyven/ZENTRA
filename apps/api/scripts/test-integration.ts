@@ -446,6 +446,14 @@ try {
   );
   check(
     (
+      await call('integration-alice', 'POST', '/v1/tasks', taskInput, {
+        'idempotency-key': taskKey,
+      })
+    ).json().id === taskId,
+    'Task replay failed after linked Project archive',
+  );
+  check(
+    (
       await call('integration-alice', 'POST', `/v1/projects/${projectId}/archive`, {
         version: 3,
       })
@@ -822,6 +830,60 @@ try {
       `Resource ${eventType} audit missing or duplicated`,
     );
   }
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/projects/${projectId}/archive`, {
+        version: 4,
+      })
+    ).statusCode === 200,
+    'Second Project archive failed',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', '/v1/conversations', conversationInput, {
+        'idempotency-key': conversationKey,
+      })
+    ).json().id === conversationId,
+    'Conversation replay failed after linked Project archive',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', '/v1/resources', resourceInput, {
+        'idempotency-key': resourceKey,
+      })
+    ).json().id === resourceId,
+    'Resource replay failed after linked Project archive',
+  );
+  const blockedKey = randomUUID();
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        '/v1/resources',
+        {
+          ...resourceInput,
+          title: 'Blocked by archive',
+        },
+        { 'idempotency-key': blockedKey },
+      )
+    ).statusCode === 404,
+    'New Resource was created under archived Project',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM idempotency_records WHERE workspace_id = '${alpha}' AND key = '${blockedKey}';`,
+    ) === '0',
+    'Rejected Resource create stranded idempotency reservation',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/projects/${projectId}/restore`, {
+        version: 5,
+      })
+    ).statusCode === 200,
+    'Second Project restore failed',
+  );
   check(
     (
       await call('integration-alice', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`)

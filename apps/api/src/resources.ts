@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { claimIdempotency, finishIdempotency, readIdempotencyKey } from './idempotency';
 import { roleInWorkspace } from './membership';
+import { requireActiveProject } from './project-reference';
 import type { Services } from './request-context';
 import { runAuthorized } from './request-context';
 
@@ -79,14 +80,6 @@ export function registerResourceRoutes(app: FastifyInstance, services: Services)
           membership: role ? { workspaceId, role, status: 'ACTIVE' } : null,
         });
         if (!decision.allowed) return denied(reply, decision.reason);
-        if (projectId) {
-          const project = await client.query(
-            `SELECT id FROM projects WHERE id = $1 AND workspace_id = $2
-             AND archived_at IS NULL AND deleted_at IS NULL`,
-            [projectId, workspaceId],
-          );
-          if (!project.rows[0]) return reply.code(404).send({ error: 'project_not_found' });
-        }
         const claim = await claimIdempotency(client, workspaceId, 'resource:create', key, hash);
         if (claim.kind === 'conflict')
           return reply.code(409).send({ error: 'idempotency_key_conflict' });
@@ -98,6 +91,7 @@ export function registerResourceRoutes(app: FastifyInstance, services: Services)
           if (!previous.rows[0]) throw new Error('Idempotency Resource missing');
           return dto(previous.rows[0]);
         }
+        await requireActiveProject(client, workspaceId, projectId);
         const inserted = await client.query<ResourceRow>(
           `INSERT INTO resources(workspace_id, project_id, title, source_ref, created_by)
            VALUES ($1, $2, $3, $4, $5) RETURNING ${fields}`,
