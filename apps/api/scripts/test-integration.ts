@@ -649,6 +649,179 @@ try {
       `Conversation ${eventType} audit missing or duplicated`,
     );
   }
+  const resourceInput = {
+    workspaceId: alpha,
+    projectId,
+    title: 'Market source',
+    sourceRef: 'https://example.com/market-source',
+  };
+  const rollbackResource = expectUuid(
+    migrationSql(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';
+       INSERT INTO resources(workspace_id, project_id, title, source_ref, created_by)
+       VALUES ('${alpha}', '${projectId}', 'Rolled back', 'https://example.com/rollback',
+         '${expectUuid(users[0])}') RETURNING id;
+       ROLLBACK;`,
+    ),
+  );
+  check(
+    migrationSql(`SELECT count(*) FROM resources WHERE id = '${rollbackResource}';`) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${rollbackResource}';`,
+      ) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${rollbackResource}';`,
+      ) === '0',
+    'Rolled-back Resource left entity or event behind',
+  );
+  const resourceKey = randomUUID();
+  check(
+    (await call('integration-alice', 'POST', '/v1/resources', resourceInput)).statusCode === 400,
+    'Resource accepted missing idempotency key',
+  );
+  const createdResource = await call('integration-alice', 'POST', '/v1/resources', resourceInput, {
+    'idempotency-key': resourceKey,
+  });
+  check(createdResource.statusCode === 201, 'Resource metadata creation failed');
+  const resourceId = expectUuid(createdResource.json().id);
+  migrationSql(
+    `UPDATE workspace_memberships SET status = 'ACTIVE'
+     WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/resources/${resourceId}`)).statusCode === 200,
+    'Shared Resource was not readable',
+  );
+  check(
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        '/v1/resources',
+        {
+          ...resourceInput,
+          title: 'Denied',
+        },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 403,
+    'MEMBER created Resource',
+  );
+  check(
+    (
+      await call('integration-bob', 'POST', `/v1/resources/${resourceId}/delete`, {
+        version: 1,
+      })
+    ).statusCode === 403,
+    'MEMBER deleted Resource',
+  );
+  migrationSql(
+    `UPDATE workspace_memberships SET status = 'SUSPENDED'
+     WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', '/v1/resources', resourceInput, {
+        'idempotency-key': resourceKey,
+      })
+    ).json().id === resourceId,
+    'Resource idempotency replay changed identity',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        '/v1/resources',
+        {
+          ...resourceInput,
+          sourceRef: 'https://example.com/changed',
+        },
+        { 'idempotency-key': resourceKey },
+      )
+    ).statusCode === 409,
+    'Resource accepted changed payload under reused key',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/resources/${resourceId}`)).statusCode === 404,
+    'Bob read Alice Resource',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'GET',
+        `/v1/resources?workspaceId=${alpha}&projectId=${projectId}`,
+      )
+    ).json().resources[0]?.id === resourceId,
+    'Resource list missed entity',
+  );
+  const renamedResource = await call('integration-alice', 'PATCH', `/v1/resources/${resourceId}`, {
+    version: 1,
+    title: 'Reviewed source',
+  });
+  check(
+    renamedResource.statusCode === 200 && renamedResource.json().version === 2,
+    'Resource versioned update failed',
+  );
+  check(
+    (
+      await call('integration-alice', 'PATCH', `/v1/resources/${resourceId}`, {
+        version: 1,
+        title: 'Stale',
+      })
+    ).statusCode === 409,
+    'Stale Resource update succeeded',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/resources/${resourceId}/delete`, {
+        version: 1,
+      })
+    ).statusCode === 409,
+    'Stale Resource delete succeeded',
+  );
+  const deletedResource = await call(
+    'integration-alice',
+    'POST',
+    `/v1/resources/${resourceId}/delete`,
+    { version: 2 },
+  );
+  check(
+    deletedResource.statusCode === 200 && deletedResource.json().deleted === true,
+    'Resource soft delete failed',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/resources/${resourceId}`)).statusCode === 404,
+    'Soft-deleted Resource remained visible',
+  );
+  const deletedResourceReplay = await call(
+    'integration-alice',
+    'POST',
+    '/v1/resources',
+    resourceInput,
+    { 'idempotency-key': resourceKey },
+  );
+  check(
+    deletedResourceReplay.statusCode === 201 &&
+      deletedResourceReplay.json().id === resourceId &&
+      deletedResourceReplay.json().deletedAt,
+    'Deleted Resource create replay lost canonical result',
+  );
+  for (const eventType of ['resource.created.v1', 'resource.updated.v1', 'resource.deleted.v1']) {
+    check(
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${resourceId}' AND event_type = '${eventType}';`,
+      ) === '1',
+      `Resource ${eventType} outbox missing or duplicated`,
+    );
+    check(
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${resourceId}' AND action = '${eventType}';`,
+      ) === '1',
+      `Resource ${eventType} audit missing or duplicated`,
+    );
+  }
   check(
     (
       await call('integration-alice', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`)
@@ -672,6 +845,9 @@ try {
       .join(',');
     const workspaceDelete = workspaces.length
       ? `DELETE FROM idempotency_records WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM resources WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM conversations WHERE workspace_id IN (${workspaces

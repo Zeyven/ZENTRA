@@ -15,6 +15,10 @@ export type PolicyAction =
   | 'conversation:update'
   | 'conversation:archive'
   | 'conversation:restore'
+  | 'resource:create'
+  | 'resource:read'
+  | 'resource:update'
+  | 'resource:delete'
   | 'task:create'
   | 'task:read'
   | 'task:update'
@@ -51,6 +55,9 @@ export const workspacePolicy: PolicyEngine = {
         action === 'conversation:update' ||
         action === 'conversation:archive' ||
         action === 'conversation:restore' ||
+        action === 'resource:create' ||
+        action === 'resource:update' ||
+        action === 'resource:delete' ||
         action === 'task:create' ||
         action === 'task:update' ||
         action === 'task:delete') &&
