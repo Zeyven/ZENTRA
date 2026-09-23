@@ -215,6 +215,79 @@ try {
     ).statusCode === 409,
     'Stale Project update succeeded',
   );
+  const taskInput = {
+    workspaceId: alpha,
+    projectId,
+    title: 'Draft analysis',
+    goal: 'Produce a reviewable result',
+    type: 'WORK',
+  };
+  check(
+    (await call('integration-alice', 'POST', '/v1/tasks', taskInput)).statusCode === 400,
+    'Task accepted missing idempotency key',
+  );
+  const taskKey = randomUUID();
+  const taskResponse = await call('integration-alice', 'POST', '/v1/tasks', taskInput, {
+    'idempotency-key': taskKey,
+  });
+  check(
+    taskResponse.statusCode === 201 &&
+      taskResponse.json().status === 'DRAFT' &&
+      taskResponse.json().currentRunId === null,
+    'Task draft creation failed or invented a Run',
+  );
+  const taskId = expectUuid(taskResponse.json().id);
+  check(
+    (
+      await call('integration-alice', 'POST', '/v1/tasks', taskInput, {
+        'idempotency-key': taskKey,
+      })
+    ).json().id === taskId,
+    'Task idempotency replay changed identity',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        '/v1/tasks',
+        { ...taskInput, goal: 'Different' },
+        { 'idempotency-key': taskKey },
+      )
+    ).statusCode === 409,
+    'Task accepted reused key with changed goal',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/tasks/${taskId}`)).statusCode === 404,
+    'Bob read Alice Task',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'GET',
+        `/v1/tasks?workspaceId=${alpha}&projectId=${projectId}`,
+      )
+    ).json().tasks[0]?.id === taskId,
+    'Task list missed draft',
+  );
+  const taskUpdated = await call('integration-alice', 'PATCH', `/v1/tasks/${taskId}`, {
+    version: 1,
+    title: 'Updated draft',
+  });
+  check(
+    taskUpdated.statusCode === 200 && taskUpdated.json().version === 2,
+    'Task optimistic update failed',
+  );
+  check(
+    (
+      await call('integration-alice', 'PATCH', `/v1/tasks/${taskId}`, {
+        version: 1,
+        title: 'Stale',
+      })
+    ).statusCode === 409,
+    'Stale Task update succeeded',
+  );
   const bobId = expectUuid(users[1]);
   migrationSql(
     `INSERT INTO workspace_memberships(workspace_id,user_id,role,status) VALUES ('${alpha}','${bobId}','MEMBER','ACTIVE');`,
@@ -222,6 +295,27 @@ try {
   check(
     (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 200,
     'Shared Project was not readable',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/tasks/${taskId}`)).statusCode === 200,
+    'Shared Task was not readable',
+  );
+  check(
+    (await call('integration-bob', 'PATCH', `/v1/tasks/${taskId}`, { version: 2, title: 'Denied' }))
+      .statusCode === 403,
+    'MEMBER modified Task',
+  );
+  check(
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        '/v1/tasks',
+        { ...taskInput, title: 'Denied' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 403,
+    'MEMBER created Task',
   );
   check(
     (
@@ -238,6 +332,10 @@ try {
   check(
     (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 404,
     'Suspended member retained Project access',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/tasks/${taskId}`)).statusCode === 404,
+    'Suspended member retained Task access',
   );
   const secondSession = await call('integration-alice-2', 'GET', '/v1/account');
   check(
@@ -277,6 +375,32 @@ try {
     'Another account session was affected',
   );
   check(
+    (await call('integration-alice', 'POST', `/v1/tasks/${taskId}/delete`, { version: 2 })).json()
+      .deleted === true,
+    'Task soft delete failed',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/tasks/${taskId}`)).statusCode === 404,
+    'Soft-deleted Task remained visible',
+  );
+  const deletedReplay = await call('integration-alice', 'POST', '/v1/tasks', taskInput, {
+    'idempotency-key': taskKey,
+  });
+  check(
+    deletedReplay.statusCode === 201 &&
+      deletedReplay.json().id === taskId &&
+      deletedReplay.json().deletedAt,
+    'Deleted Task create replay lost canonical result',
+  );
+  for (const eventType of ['task.created.v1', 'task.updated.v1', 'task.deleted.v1']) {
+    check(
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${taskId}' AND event_type = '${eventType}';`,
+      ) === '1',
+      `Task ${eventType} outbox missing or duplicated`,
+    );
+  }
+  check(
     (
       await call('integration-alice', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`)
     ).json().revoked === true,
@@ -299,6 +423,9 @@ try {
       .join(',');
     const workspaceDelete = workspaces.length
       ? `DELETE FROM idempotency_records WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM tasks WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM projects WHERE workspace_id IN (${workspaces

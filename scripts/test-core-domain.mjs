@@ -172,6 +172,35 @@ try {
       `INSERT INTO tasks(workspace_id,project_id,title,goal,type,created_by) VALUES ('${alpha}','${project}','Task','Deliver result','WORK','${alice}') RETURNING id;`,
     ),
   );
+  assert(
+    query(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${task}' AND event_type = 'task.created.v1'`,
+    ) === '1',
+    'Task creation outbox missing',
+  );
+  assert(
+    query(
+      `SELECT count(*) FROM audit_events WHERE aggregate_id = '${task}' AND action = 'task.created.v1'`,
+    ) === '1',
+    'Task creation audit missing',
+  );
+  const rolledBackTask = uuid(
+    query(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; INSERT INTO tasks(workspace_id,title,goal,type,created_by) VALUES ('${alpha}','Rollback Task','No commit','WORK','${alice}') RETURNING id; ROLLBACK;`,
+    ),
+  );
+  assert(
+    query(`SELECT count(*) FROM tasks WHERE id = '${rolledBackTask}'`) === '0',
+    'Rolled-back Task survived',
+  );
+  assert(
+    query(`SELECT count(*) FROM audit_events WHERE aggregate_id = '${rolledBackTask}'`) === '0',
+    'Rolled-back Task audit survived',
+  );
+  assert(
+    query(`SELECT count(*) FROM outbox_events WHERE aggregate_id = '${rolledBackTask}'`) === '0',
+    'Rolled-back Task outbox survived',
+  );
   const otherTask = uuid(
     query(
       `INSERT INTO tasks(workspace_id,title,goal,type,created_by) VALUES ('${alpha}','Other','Other goal','WORK','${alice}') RETURNING id;`,
@@ -187,7 +216,9 @@ try {
       `INSERT INTO runs(workspace_id,task_id,attempt,status,created_by) VALUES ('${alpha}','${otherTask}',1,'PENDING','${alice}') RETURNING id;`,
     ),
   );
-  query(`UPDATE tasks SET current_run_id = '${run}', version = 2 WHERE id = '${task}';`);
+  query(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET current_run_id = '${run}', version = 2 WHERE id = '${task}'; COMMIT;`,
+  );
   assert(
     query(`SELECT current_run_id FROM tasks WHERE id = '${task}'`) === run,
     'Task/Run mapping failed',
@@ -196,7 +227,7 @@ try {
     `INSERT INTO tasks(workspace_id,project_id,title,goal,type,created_by) VALUES ('${beta}','${project}','Wrong tenant','Goal','WORK','${bob}');`,
   );
   expectFailure(
-    `UPDATE tasks SET current_run_id = '${otherRun}', version = 3 WHERE id = '${task}';`,
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET current_run_id = '${otherRun}', version = 3 WHERE id = '${task}'; COMMIT;`,
   );
 
   const artifact = uuid(
@@ -230,6 +261,7 @@ try {
       .map((id) => `'${id}'`)
       .join(',');
     query(`BEGIN;
+      SET LOCAL ayra.actor_user_id = '${uuid(users[0])}';
       DELETE FROM approvals WHERE workspace_id IN (${ids});
       DELETE FROM artifacts WHERE workspace_id IN (${ids});
       UPDATE tasks SET current_run_id = NULL, version = version + 1 WHERE workspace_id IN (${ids}) AND current_run_id IS NOT NULL;

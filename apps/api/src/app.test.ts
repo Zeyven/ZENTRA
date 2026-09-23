@@ -11,7 +11,7 @@ describe('control plane foundation', () => {
       expect(
         (await app.inject({ method: 'POST', url: '/v1/tasks', payload: { goal: 'run shell' } }))
           .statusCode,
-      ).toBe(404);
+      ).toBe(400);
       const schema = (await app.inject({ method: 'GET', url: '/openapi.json' })).json();
       expect(schema.openapi).toMatch(/^3\./);
       expect(schema.paths['/health/live']).toBeDefined();

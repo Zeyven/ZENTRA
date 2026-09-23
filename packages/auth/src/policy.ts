@@ -7,7 +7,11 @@ export type PolicyAction =
   | 'workspace:update'
   | 'project:create'
   | 'project:read'
-  | 'project:update';
+  | 'project:update'
+  | 'task:create'
+  | 'task:read'
+  | 'task:update'
+  | 'task:delete';
 export type PolicyDecision =
   | { readonly allowed: true }
   | { readonly allowed: false; readonly reason: 'NO_MEMBERSHIP' | 'INSUFFICIENT_ROLE' };
@@ -33,7 +37,10 @@ export const workspacePolicy: PolicyEngine = {
     if (
       (action === 'workspace:update' ||
         action === 'project:create' ||
-        action === 'project:update') &&
+        action === 'project:update' ||
+        action === 'task:create' ||
+        action === 'task:update' ||
+        action === 'task:delete') &&
       membership.role !== 'OWNER'
     )
       return { allowed: false, reason: 'INSUFFICIENT_ROLE' };
