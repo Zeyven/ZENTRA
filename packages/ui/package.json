@@ -8,7 +8,8 @@
     "./styles.css": "./src/styles.css",
     "./components": "./src/components/primitives.tsx",
     "./icons": "./src/components/icons.tsx",
-    "./components.css": "./src/components/primitives.css"
+    "./components.css": "./src/components/primitives.css",
+    "./local-drafts": "./src/local-drafts.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

@@ -2,6 +2,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { CommandBar } from './components/command-bar';
 import { Sidebar, Card, TaskCard, ArtifactCard, ProjectCard } from './components/primitives';
+import { MAX_DRAFT_LENGTH, type DraftSurface, type LocalDraft } from './local-drafts';
 import {
   House,
   ChatCircle,
@@ -108,6 +109,9 @@ export function FoundationView({
   onNavigate,
   compact,
   onCompactChange,
+  localDrafts,
+  draftSaveAvailable,
+  onDraftChange,
 }: {
   surface?: Surface;
   navigation: ReactNode;
@@ -115,6 +119,9 @@ export function FoundationView({
   onNavigate: (surface: Surface) => void;
   compact: boolean;
   onCompactChange: (value: boolean) => void;
+  localDrafts: Record<DraftSurface, LocalDraft | null>;
+  draftSaveAvailable: boolean;
+  onDraftChange: (surface: DraftSurface, text: string) => void;
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -127,7 +134,6 @@ export function FoundationView({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const [menu, setMenu] = useState<'workspace' | 'notifications' | 'account' | null>(null);
-  const [draft, setDraft] = useState('');
   const [buildTab, setBuildTab] = useState('Preview');
   const [projectTab, setProjectTab] = useState('Overview');
   const [activityFilter, setActivityFilter] = useState('All');
@@ -136,6 +142,32 @@ export function FoundationView({
   const [contextOpen, setContextOpen] = useState(true);
   const toggle = (value: typeof menu) => setMenu(menu === value ? null : value);
   const navigate = onNavigate;
+  const draft = surface === 'Chat' || surface === 'Work' ? (localDrafts[surface]?.text ?? '') : '';
+  const draftStatus = draftSaveAvailable
+    ? draft
+      ? '已保存在此设备 · 未同步'
+      : '输入后保存在此设备 · 未同步'
+    : '本机保存不可用；刷新或退出后可能丢失';
+  const copyDraft = async () => {
+    if (!draft.trim()) return;
+    try {
+      await navigator.clipboard.writeText(draft);
+      setNotice('草稿已复制到剪贴板。');
+    } catch {
+      setNotice('无法访问剪贴板。请在编辑区手动选择并复制草稿。');
+    }
+  };
+  const exportDraft = (kind: DraftSurface) => {
+    if (!draft.trim()) return;
+    const url = URL.createObjectURL(new Blob([draft], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = kind === 'Work' ? 'ayra-work-draft.md' : 'ayra-chat-draft.txt';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   const unavailable = () =>
     setNotice('账户与任务服务尚未开放。内容仍保留在当前页面，没有发送到模型。');
   return (
@@ -252,6 +284,29 @@ export function FoundationView({
                   </div>
                 </section>
                 <Panel title="Continue Working">
+                  {(localDrafts.Chat?.text || localDrafts.Work?.text) && (
+                    <div className="local-draft-list">
+                      <span className="eyebrow">
+                        {draftSaveAvailable ? 'ON THIS DEVICE' : 'CURRENT SESSION'}
+                      </span>
+                      {(['Chat', 'Work'] as const)
+                        .filter((kind) => localDrafts[kind]?.text)
+                        .map((kind) => (
+                          <button key={kind} onClick={() => navigate(kind)}>
+                            <SurfaceIcon surface={kind} />
+                            <span>
+                              <strong>{kind} draft</strong>
+                              <small>
+                                {draftSaveAvailable
+                                  ? 'Continue editing · not synced'
+                                  : 'Continue editing · not saved'}
+                              </small>
+                            </span>
+                            <ArrowRight size={16} />
+                          </button>
+                        ))}
+                    </div>
+                  )}
                   <div className="working-grid">
                     {(['Chat', 'Work', 'Build'] as const).map((s, i) => (
                       <button className="work-card" key={s} onClick={() => navigate(s)}>
@@ -386,7 +441,7 @@ export function FoundationView({
                           'Outline a research plan',
                           'Think through a challenge',
                         ].map((p) => (
-                          <button key={p} onClick={() => setDraft(p)}>
+                          <button key={p} onClick={() => onDraftChange('Chat', p)}>
                             {p}
                             <ArrowRight size={16} />
                           </button>
@@ -404,10 +459,29 @@ export function FoundationView({
                         aria-label="消息草稿"
                         placeholder="Ask AYRA anything…"
                         value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
+                        maxLength={MAX_DRAFT_LENGTH}
+                        onChange={(e) => onDraftChange('Chat', e.target.value)}
                       />
                       <div>
-                        <span className="muted">草稿仅保留在当前页面</span>
+                        <span className="muted" role="status">
+                          {draftStatus}
+                        </span>
+                        <button
+                          type="button"
+                          className="subtle"
+                          disabled={!draft.trim()}
+                          onClick={() => exportDraft('Chat')}
+                        >
+                          Export draft
+                        </button>
+                        <button
+                          type="button"
+                          className="subtle"
+                          disabled={!draft.trim()}
+                          onClick={copyDraft}
+                        >
+                          Copy draft
+                        </button>
                         <button
                           className="primary icon-button"
                           aria-label="发送消息"
@@ -447,7 +521,25 @@ export function FoundationView({
                   <section className="document panel">
                     <div className="editor-toolbar">
                       <span>Draft notes</span>
-                      <span className="muted">当前页面草稿</span>
+                      <span className="muted" role="status">
+                        {draftStatus}
+                      </span>
+                      <button
+                        type="button"
+                        className="subtle"
+                        disabled={!draft.trim()}
+                        onClick={() => exportDraft('Work')}
+                      >
+                        Export draft
+                      </button>
+                      <button
+                        type="button"
+                        className="subtle"
+                        disabled={!draft.trim()}
+                        onClick={copyDraft}
+                      >
+                        Copy draft
+                      </button>
                     </div>
                     <div className="document-paper">
                       <p className="eyebrow">A NEW BEGINNING</p>
@@ -460,7 +552,8 @@ export function FoundationView({
                         aria-label="文档草稿"
                         placeholder="Give your idea a little room. Start writing here…"
                         value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
+                        maxLength={MAX_DRAFT_LENGTH}
+                        onChange={(e) => onDraftChange('Work', e.target.value)}
                       />
                     </div>
                   </section>
@@ -619,6 +712,18 @@ export function FoundationView({
                       <SidebarSimple size={18} />
                       {compact ? 'Compact' : 'Comfortable'}
                     </button>
+                  </div>
+                  <div className="setting-row">
+                    <div>
+                      <h3>Local drafts</h3>
+                      <p className="muted">
+                        Chat 和 Work
+                        草稿仅保存在此设备的应用数据中，未同步到账号。可在各页面导出；能访问此系统账户的人也可能读取本机草稿。
+                      </p>
+                    </div>
+                    <span className="preview-tag">
+                      {draftSaveAvailable ? 'Device only' : 'Unavailable'}
+                    </span>
                   </div>
                   <div className="setting-row">
                     <div>

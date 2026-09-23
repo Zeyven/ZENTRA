@@ -686,9 +686,12 @@ footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .composer .muted {
   font-size: 10px;
+  margin-right: auto;
 }
 .composer .primary {
   padding: 8px;
@@ -734,16 +737,62 @@ footer {
   padding: 0;
 }
 .editor-toolbar {
-  height: 43px;
+  min-height: 43px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
   font-size: 11px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .editor-toolbar .muted {
   font-size: 10px;
+  margin-left: auto;
+}
+.editor-toolbar .subtle {
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+.local-draft-list {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--mist);
+}
+.local-draft-list .eyebrow {
+  margin: 0 0 8px;
+  font-size: 9px;
+}
+.local-draft-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 6px;
+  text-align: left;
+}
+.local-draft-list button + button {
+  border-top: 1px solid var(--border);
+}
+.local-draft-list button span {
+  flex: 1;
+  min-width: 0;
+}
+.local-draft-list button strong,
+.local-draft-list button small {
+  display: block;
+}
+.local-draft-list button strong {
+  font-weight: 500;
+  font-size: 13px;
+}
+.local-draft-list button small {
+  color: var(--secondary);
+  font-size: 11px;
+  margin-top: 3px;
 }
 .document-paper {
   padding: 30px 27px;

@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FoundationView, SurfaceIcon, surfaces, type Surface } from '@ayra/ui';
+import {
+  readLocalDraft,
+  writeLocalDraft,
+  type DraftStorage,
+  type DraftSurface,
+  type LocalDraft,
+} from '@ayra/ui/local-drafts';
 import '@ayra/ui/components.css';
 import '@ayra/ui/styles.css';
 function current(): Surface {
@@ -9,6 +16,18 @@ function current(): Surface {
 function App() {
   const [surface, setSurface] = useState(current);
   const [compact, setCompact] = useState(false);
+  const [draftStorage] = useState<DraftStorage | null>(() => {
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
+  });
+  const [localDrafts, setLocalDrafts] = useState<Record<DraftSurface, LocalDraft | null>>(() => ({
+    Chat: readLocalDraft(draftStorage, 'Chat'),
+    Work: readLocalDraft(draftStorage, 'Work'),
+  }));
+  const [draftSaveAvailable, setDraftSaveAvailable] = useState(Boolean(draftStorage));
   useEffect(() => {
     const update = () => setSurface(current());
     window.addEventListener('hashchange', update);
@@ -20,6 +39,16 @@ function App() {
       surface={surface}
       compact={compact}
       onCompactChange={setCompact}
+      localDrafts={localDrafts}
+      draftSaveAvailable={draftSaveAvailable}
+      onDraftChange={(kind, text) => {
+        const updatedAt = Date.now();
+        setLocalDrafts((currentDrafts) => ({
+          ...currentDrafts,
+          [kind]: text ? { text, updatedAt } : null,
+        }));
+        setDraftSaveAvailable(writeLocalDraft(draftStorage, kind, text, updatedAt));
+      }}
       onNavigate={(next) => {
         window.location.hash = next.toLowerCase();
       }}

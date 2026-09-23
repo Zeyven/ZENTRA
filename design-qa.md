@@ -8,7 +8,7 @@ This review covers the implemented interface, not M1–M12 business functionalit
 
 ## Local engineering evidence
 
-- Full pnpm check passed: ESLint, architecture boundaries, format, workspace typechecks, 16 deterministic tests, and all workspace builds.
+- Full pnpm check passed: ESLint, architecture boundaries, format, workspace typechecks, 19 deterministic tests, and all workspace builds.
 - Four marketing routes return HTTP 200; /chat, /work, /build, /projects and /settings return 404 on the website.
 - Native builds are separately checked in GitHub Actions; the earlier 923601b run is not evidence for this UI revision.
 
@@ -40,8 +40,12 @@ Screenshots are stored locally in .local/product-qa (not published as source): w
 - Depth: persistent navigation, page content and supporting context have distinct but restrained levels.
 - Consistency: shared color, spacing, type, radius and shadow tokens; Phosphor outline icons; supplied brand mark.
 
+## Local draft follow-up
+
+Chat and Work drafts were entered separately in an isolated preview tab. Both appeared on Home, reopened with the original text, and survived a reload. Removing the text removed each Home entry. Storage failure and malformed/oversized data have deterministic tests. Copy returned a success notice; browser CDP observed a blob download request with the expected file name and bytes, but the in-app browser did not emit a completed download event. Native desktop save behavior remains unverified. Test drafts were cleared after verification.
+
 ## Remaining limits
 
-Current UI intentionally has service-disconnected empty states. Chat/Work drafts reset when leaving the page. Complete keyboard/screen-reader certification, true macOS/Windows window interaction, and populated application states require their own follow-up acceptance. No public installer, recorded overview video, real AI response or persistent project exists yet. Local Docker infrastructure remains NOT VERIFIED by user choice.
+Current UI intentionally has service-disconnected empty states. Chat/Work drafts persist on this device and can be resumed after navigation or reload; they are not synced to an account. Complete keyboard/screen-reader certification, true macOS/Windows window interaction, and populated application states require their own follow-up acceptance. No public installer, recorded overview video, real AI response or persistent project exists yet. Local Docker infrastructure remains NOT VERIFIED by user choice.
 
 final result: pass for the implemented interface scope, with the limits above; not full product acceptance.

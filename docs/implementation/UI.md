@@ -15,12 +15,12 @@
 
 ## Real behavior and limits
 
-导航、搜索（含键盘选择）、菜单、概览、分类、草稿输入和上下文收起可操作。设置中的紧凑导航在当前应用会话中保留。Chat/Work 草稿只保留当前页面，离开会重置；未实现服务端持久化。创建项目和发送消息会说明服务尚未开放，没有伪造成功反馈。
+导航、搜索（含键盘选择）、菜单、概览、分类、草稿输入和上下文收起可操作。设置中的紧凑导航在当前应用会话中保留。Chat/Work 草稿分别保存在当前设备的应用数据中，离开页面或刷新后可以恢复；首页显示真实存在的本机草稿入口。支持复制与触发文本/Markdown 下载；本机存储失败时明确提示，并保留当前会话中的输入。草稿没有账号同步或服务端持久化。创建项目和发送消息会说明服务尚未开放，没有伪造成功反馈。
 
 账户、项目存储、任务执行、模型接入与安装包发布尚未实现。官网 Security 区分设计要求与实际发布证据，不宣称已经通过审计或全部本地处理。
 
 ## Verification
 
-本轮本地 lint / architecture boundaries / typecheck / 16 deterministic tests / all workspace builds 通过。网站四个页面 HTTP 200；已移除的五个 Web 工作空间路由 HTTP 404。浏览器交互和视觉证据见根目录 design-qa.md。原生平台验证由 GitHub Actions 独立执行，先前 923601b 的通过记录不能替代本轮提交。
+本轮本地 lint / architecture boundaries / typecheck / 19 deterministic tests / all workspace builds 通过。网站四个页面 HTTP 200；已移除的五个 Web 工作空间路由 HTTP 404。浏览器交互和视觉证据见根目录 design-qa.md。原生平台验证由 GitHub Actions 独立执行，上一轮 UI 提交 14118bb 的工程与 macOS/Windows 原生构建已经通过；本轮草稿修改需单独复验。
 
 本地 Docker 基础设施按用户选择保持 NOT VERIFIED；未重新拉取镜像。未执行生产部署、数据库迁移或付费模型调用。
