@@ -67,6 +67,16 @@ async function call(
 function check(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
 }
+function checkRetention(type: 'Task' | 'Resource' | 'Artifact', id: string) {
+  check(
+    migrationSql(
+      `SELECT count(*) FROM retention_requests
+       WHERE aggregate_type = '${type}' AND aggregate_id = '${expectUuid(id)}'
+         AND status = 'PENDING_POLICY' AND scheduled_for IS NULL;`,
+    ) === '1',
+    `${type} soft delete did not create exactly one pending retention handoff`,
+  );
+}
 function migrationSql(statement: string) {
   const result = spawnSync(
     'docker',
@@ -463,6 +473,7 @@ try {
     (await call('integration-alice', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 404,
     'Soft-deleted Artifact remained visible',
   );
+  checkRetention('Artifact', artifactId);
   for (const eventType of ['artifact.created.v1', 'artifact.deleted.v1']) {
     check(
       migrationSql(
@@ -520,6 +531,7 @@ try {
     (await call('integration-alice', 'GET', `/v1/tasks/${taskId}`)).statusCode === 404,
     'Soft-deleted Task remained visible',
   );
+  checkRetention('Task', taskId);
   const deletedReplay = await call('integration-alice', 'POST', '/v1/tasks', taskInput, {
     'idempotency-key': taskKey,
   });
@@ -918,6 +930,18 @@ try {
     ).statusCode === 409,
     'Stale Resource delete succeeded',
   );
+  migrationSql(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';
+     UPDATE resources SET deleted_at = now(), version = version + 1, updated_by = '${expectUuid(users[0])}'
+     WHERE id = '${resourceId}'; ROLLBACK;`,
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM retention_requests WHERE aggregate_type = 'Resource' AND aggregate_id = '${resourceId}';`,
+    ) === '0' &&
+      (await call('integration-alice', 'GET', `/v1/resources/${resourceId}`)).statusCode === 200,
+    'Rolled-back Resource deletion retained a handoff or hid the Resource',
+  );
   const deletedResource = await call(
     'integration-alice',
     'POST',
@@ -932,6 +956,7 @@ try {
     (await call('integration-alice', 'GET', `/v1/resources/${resourceId}`)).statusCode === 404,
     'Soft-deleted Resource remained visible',
   );
+  checkRetention('Resource', resourceId);
   const deletedResourceReplay = await call(
     'integration-alice',
     'POST',
@@ -1036,6 +1061,9 @@ try {
       .join(',');
     const workspaceDelete = workspaces.length
       ? `DELETE FROM idempotency_records WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM retention_requests WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM artifacts WHERE workspace_id IN (${workspaces
