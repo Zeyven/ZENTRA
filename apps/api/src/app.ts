@@ -35,7 +35,7 @@ export async function createApp(services: { identity?: IdentityProvider; pool?: 
   app.get('/health/ready', async (_req, reply) =>
     reply.code(503).send({
       status: 'not_ready',
-      reason: 'M1 identity and workspace integration is not release-ready',
+      reason: 'AYRA business capabilities are not release-ready',
     }),
   );
   registerWorkspaceRoutes(app, services);

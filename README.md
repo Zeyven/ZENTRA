@@ -1,6 +1,6 @@
 # AYRA
 
-按照 **AYRA BASELINE v1.0 — FROZEN** 实施的通用智能体工作空间。M0 工程基础已通过验收，M1 身份、Workspace 与 Policy 正在实施；完整业务能力和生产就绪状态尚未验证。
+按照 **AYRA BASELINE v1.0 — FROZEN** 实施的通用智能体工作空间。M0 工程基础与 M1 身份、Workspace、Policy 的工程 DoD 已通过；完整业务能力和生产就绪状态尚未验证。
 
 原始白皮书未修改。完整白皮书及其文本提取作为本地实施输入，不随公开源码发布；原文件 SHA-256 位于 `docs/baseline/`。实施记录见 `docs/adr/0001-m0-baseline.md`、`docs/implementation/M0.md` 和 `docs/implementation/M1.md`。按白皮书逐阶段推进。
 
@@ -15,15 +15,15 @@ pnpm dev
 
 `pnpm dev` 是本地启动入口：保留已有 `.env.local` 或生成随机本地凭据，启动 PostgreSQL 18 / Redis / Temporal dev / S3-compatible MinIO，验证基础设施，运行带校验和的数据库迁移，然后启动 API、Worker 和 Web。任何步骤失败都会停止，不会回退到内存数据库或模拟基础设施。API 和 Worker 由启动器加载本地环境。独立启动服务前需在进程中提供相同环境变量。
 
-| 入口                 | 本地地址 / 行为                       |
-| -------------------- | ------------------------------------- |
-| Web                  | http://localhost:3000                 |
-| API liveness         | http://127.0.0.1:4000/health/live     |
-| API readiness        | `/health/ready` 返回 503，M1 尚未完成 |
-| OpenAPI              | http://127.0.0.1:4000/openapi.json    |
-| Temporal dev UI      | http://127.0.0.1:8233                 |
-| Object store console | http://127.0.0.1:9001                 |
-| Worker               | 仅进程骨架，不接受或执行任务          |
+| 入口                 | 本地地址 / 行为                          |
+| -------------------- | ---------------------------------------- |
+| Web                  | http://localhost:3000                    |
+| API liveness         | http://127.0.0.1:4000/health/live        |
+| API readiness        | `/health/ready` 返回 503，产品未发布就绪 |
+| OpenAPI              | http://127.0.0.1:4000/openapi.json       |
+| Temporal dev UI      | http://127.0.0.1:8233                    |
+| Object store console | http://127.0.0.1:9001                    |
+| Worker               | 仅进程骨架，不接受或执行任务             |
 
 仅查看官网可运行 `pnpm dev:web`；桌面 UI 独立预览使用 `pnpm --filter @ayra/desktop dev`（http://127.0.0.1:1420），不代表完整本地环境验收。移动端：`pnpm --filter @ayra/mobile dev`。桌面原生：`pnpm --filter @ayra/desktop dev:native`。
 

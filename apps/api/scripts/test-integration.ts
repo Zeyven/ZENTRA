@@ -1,8 +1,8 @@
-import { randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 import pg from 'pg';
-import type { IdentityProvider } from '@ayra/auth';
+import { createClerkIdentityProvider } from '@ayra/auth';
 import { createApp } from '../src/app';
 
 loadEnvFile('.env.local');
@@ -12,18 +12,35 @@ const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
 const nonce = randomUUID().replaceAll('-', '');
 const users: string[] = [];
 const workspaces: string[] = [];
-const identity: IdentityProvider = {
-  async verifySession(token) {
-    if (!['integration-alice', 'integration-alice-2', 'integration-bob'].includes(token))
-      return null;
-    const accountToken = token === 'integration-alice-2' ? 'integration-alice' : token;
-    return {
-      provider: 'clerk',
-      externalSubject: `${nonce}-${accountToken}`,
-      sessionId: `test-${nonce}-${token}`,
-    };
-  },
-};
+const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const identity = createClerkIdentityProvider({
+  jwtKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  authorizedParties: ['http://localhost:3000'],
+});
+const now = Math.floor(Date.now() / 1000);
+function signedToken(label: string) {
+  const account = label === 'integration-alice-2' ? 'integration-alice' : label;
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: `${nonce}-${account}`,
+      sid: `test-${nonce}-${label}`,
+      iss: 'https://test.clerk.accounts.dev',
+      azp: 'http://localhost:3000',
+      iat: now,
+      nbf: now - 5,
+      exp: now + 300,
+    }),
+  ).toString('base64url');
+  const message = `${header}.${payload}`;
+  return `${message}.${sign('RSA-SHA256', Buffer.from(message), privateKey).toString('base64url')}`;
+}
+const tokens = Object.fromEntries(
+  ['integration-alice', 'integration-alice-2', 'integration-bob'].map((label) => [
+    label,
+    signedToken(label),
+  ]),
+);
 const app = await createApp({ identity, pool });
 let cleanupFailed = false;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,7 +52,7 @@ async function call(token: string, method: 'GET' | 'POST', url: string, payload?
   return app.inject({
     method,
     url,
-    headers: { authorization: `Bearer ${token}` },
+    headers: { authorization: `Bearer ${tokens[token] ?? token}` },
     ...(payload ? { payload } : {}),
   });
 }
