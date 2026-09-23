@@ -1,4 +1,8 @@
 import { z } from 'zod';
+const optionalProviderSetting = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().min(1).optional(),
+);
 const serverSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']),
   AYRA_ENV: z.enum(['development', 'test', 'staging', 'production']),
@@ -17,6 +21,8 @@ const serverSchema = z.object({
   TEMPORAL_NAMESPACE: z.string().min(1),
   OBJECT_STORE_ENDPOINT: z.url(),
   OBJECT_STORE_BUCKET: z.string().min(1),
+  CLERK_JWT_KEY: optionalProviderSetting,
+  CLERK_AUTHORIZED_PARTIES: optionalProviderSetting,
 });
 export function parseServerConfig(env: Record<string, string | undefined>) {
   const result = serverSchema.safeParse(env);

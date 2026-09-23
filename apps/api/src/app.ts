@@ -1,6 +1,9 @@
 import Fastify from 'fastify';
 import swagger from '@fastify/swagger';
-export async function createApp() {
+import type { IdentityProvider } from '@ayra/auth';
+import type { Pool } from 'pg';
+import { registerWorkspaceRoutes } from './workspaces';
+export async function createApp(services: { identity?: IdentityProvider; pool?: Pool } = {}) {
   const app = Fastify({
     logger: {
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
@@ -32,9 +35,10 @@ export async function createApp() {
   app.get('/health/ready', async (_req, reply) =>
     reply.code(503).send({
       status: 'not_ready',
-      reason: 'M0 foundation; business services are not implemented',
+      reason: 'M1 identity and workspace integration is not release-ready',
     }),
   );
+  registerWorkspaceRoutes(app, services);
   app.get('/openapi.json', async () => app.swagger());
   return app;
 }

@@ -20,5 +20,7 @@ minimumReleaseAgeExclude:
   - '@next/swc-win32-x64-msvc@16.3.6'
   - next@16.3.6
   - prettier@3.9.9
+  - '@clerk/backend@3.19.0'
+  - '@clerk/shared@4.34.0'
 
 verifyDepsBeforeRun: error

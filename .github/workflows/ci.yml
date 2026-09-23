@@ -1,4 +1,4 @@
-name: M0 engineering gates
+name: AYRA engineering gates
 on:
   pull_request:
     branches: [ZA-AYRA]
@@ -26,6 +26,9 @@ jobs:
       - run: pnpm env:init
       - run: pnpm infra:up
       - run: pnpm infra:verify
+      - run: pnpm migrate
+      - run: pnpm test:integration
+      - run: pnpm test:api
       - if: failure()
         name: Temporal startup diagnostics
         run: docker compose --project-name ayra-local --env-file .env.local -f infrastructure/docker/compose.yaml logs --no-color --tail 80 temporal

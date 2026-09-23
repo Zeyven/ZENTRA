@@ -9,5 +9,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ayra/domain": "workspace:*",
+    "@clerk/backend": "3.19.0"
   }
 }

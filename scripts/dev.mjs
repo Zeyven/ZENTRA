@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 const pm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-for (const script of ['env:init', 'infra:up', 'infra:verify']) {
+for (const script of ['env:init', 'infra:up', 'infra:verify', 'migrate']) {
   const result = spawnSync(pm, [script], { stdio: 'inherit', shell: process.platform === 'win32' });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }

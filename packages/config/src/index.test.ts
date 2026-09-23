@@ -14,6 +14,9 @@ const env = {
 describe('server configuration', () => {
   it('accepts valid application configuration', () => {
     expect(parseServerConfig(env).API_PORT).toBe(4000);
+    expect(
+      parseServerConfig({ ...env, CLERK_JWT_KEY: '', CLERK_AUTHORIZED_PARTIES: '' }).CLERK_JWT_KEY,
+    ).toBeUndefined();
   });
   it('fails fast for missing required configuration', () => {
     expect(() => parseServerConfig({})).toThrow('Invalid server configuration');

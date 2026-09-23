@@ -1,0 +1,31 @@
+import type { UserId, WorkspaceId } from '@ayra/domain';
+
+export type WorkspaceRole = 'OWNER' | 'MEMBER';
+export type PolicyAction = 'workspace:create' | 'workspace:read' | 'workspace:update';
+export type PolicyDecision =
+  | { readonly allowed: true }
+  | { readonly allowed: false; readonly reason: 'NO_MEMBERSHIP' | 'INSUFFICIENT_ROLE' };
+
+export interface PolicyEngine {
+  authorize(input: {
+    actor: UserId;
+    action: PolicyAction;
+    workspaceId?: WorkspaceId;
+    membership?: {
+      readonly workspaceId: WorkspaceId;
+      readonly role: WorkspaceRole;
+      readonly status: 'ACTIVE';
+    } | null;
+  }): PolicyDecision;
+}
+
+export const workspacePolicy: PolicyEngine = {
+  authorize({ action, workspaceId, membership }) {
+    if (action === 'workspace:create') return { allowed: true };
+    if (!workspaceId || !membership || membership.workspaceId !== workspaceId)
+      return { allowed: false, reason: 'NO_MEMBERSHIP' };
+    if (action === 'workspace:update' && membership.role !== 'OWNER')
+      return { allowed: false, reason: 'INSUFFICIENT_ROLE' };
+    return { allowed: true };
+  },
+};
