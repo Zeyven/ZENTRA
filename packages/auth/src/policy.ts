@@ -26,6 +26,8 @@ export type PolicyAction =
   | 'run:create'
   | 'run:read'
   | 'run:update'
+  | 'approval:create'
+  | 'approval:read'
   | 'task:create'
   | 'task:read'
   | 'task:update'
@@ -70,6 +72,7 @@ export const workspacePolicy: PolicyEngine = {
         action === 'artifact:delete' ||
         action === 'run:create' ||
         action === 'run:update' ||
+        action === 'approval:create' ||
         action === 'task:create' ||
         action === 'task:update' ||
         action === 'task:delete') &&

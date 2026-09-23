@@ -1,12 +1,13 @@
-import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 import pg from 'pg';
 import { createClerkIdentityProvider } from '@ayra/auth';
-import type { ArtifactId, RunId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
+import type { ApprovalId, ArtifactId, RunId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
 import { createApp } from '../src/app';
 import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artifacts';
 import { createRunAttempt, readRunAttempt } from '../src/runs';
+import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -325,6 +326,126 @@ try {
     await foreignRunClient.query('ROLLBACK');
     foreignRunClient.release();
   }
+  const approvalInput = {
+    workspaceId: alpha as WorkspaceId,
+    userId: expectUuid(users[0]) as UserId,
+    taskId: taskId as TaskId,
+    runId: runId as RunId,
+    action: 'review.external.action',
+    resourceRef: 'test-resource',
+    argumentsHash: createHash('sha256').update('test-arguments').digest('hex'),
+    stateVersion: 1,
+    expiresAt: new Date(Date.now() + 120000),
+    idempotencyKey: randomUUID(),
+  };
+  const approvalClient = await pool.connect();
+  let approvalId: string;
+  try {
+    await approvalClient.query('BEGIN');
+    await approvalClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[0]),
+    ]);
+    const requested = await createApprovalRequest(
+      approvalClient,
+      expectUuid(users[0]) as UserId,
+      approvalInput,
+    );
+    approvalId = expectUuid(requested.id);
+    const replay = await createApprovalRequest(
+      approvalClient,
+      expectUuid(users[0]) as UserId,
+      approvalInput,
+    );
+    check(
+      replay.id === approvalId && replay.status === 'PENDING',
+      'Approval replay changed identity or state',
+    );
+    check(
+      (
+        await readApprovalRequest(
+          approvalClient,
+          expectUuid(users[0]) as UserId,
+          approvalId as ApprovalId,
+        )
+      )?.id === approvalId,
+      'Approval target could not read request',
+    );
+    await approvalClient.query('COMMIT');
+  } catch (error) {
+    await approvalClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    approvalClient.release();
+  }
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${approvalId}' AND event_type = 'approval.requested.v1';`,
+    ) === '1',
+    'Approval request replay duplicated outbox',
+  );
+  check(
+    migrationSql(`SELECT status FROM approvals WHERE id = '${approvalId}';`) === 'PENDING',
+    'Approval was decided without a decision path',
+  );
+  const deniedApprovalKey = randomUUID();
+  const deniedApprovalClient = await pool.connect();
+  let deniedNonmemberTarget = false;
+  try {
+    await deniedApprovalClient.query('BEGIN');
+    await deniedApprovalClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[0]),
+    ]);
+    try {
+      await createApprovalRequest(deniedApprovalClient, expectUuid(users[0]) as UserId, {
+        ...approvalInput,
+        userId: expectUuid(users[1]) as UserId,
+        idempotencyKey: deniedApprovalKey,
+      });
+    } catch {
+      deniedNonmemberTarget = true;
+    }
+  } finally {
+    await deniedApprovalClient.query('ROLLBACK');
+    deniedApprovalClient.release();
+  }
+  check(deniedNonmemberTarget, 'Approval targeted a user outside the Workspace');
+  check(
+    migrationSql(
+      `SELECT count(*) FROM idempotency_records WHERE workspace_id = '${alpha}' AND key = '${deniedApprovalKey}';`,
+    ) === '0',
+    'Denied Approval left idempotency reservation',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/approvals/${approvalId}/decision`, {
+        decision: 'APPROVE',
+      })
+    ).statusCode === 404,
+    'Approval decision route was exposed before tool authorization exists',
+  );
+  const rolledBackApproval = expectUuid(
+    migrationSql(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';
+       INSERT INTO approvals(
+         workspace_id, user_id, task_id, run_id, action, resource_ref,
+         arguments_hash, state_version, expires_at
+       ) VALUES (
+         '${alpha}', '${expectUuid(users[0])}', '${taskId}', '${runId}',
+         'review.rollback', 'test-resource', '${approvalInput.argumentsHash}',
+         1, now() + interval '2 minutes'
+       ) RETURNING id; ROLLBACK;`,
+    ),
+  );
+  check(
+    migrationSql(`SELECT count(*) FROM approvals WHERE id = '${rolledBackApproval}';`) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${rolledBackApproval}';`,
+      ) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${rolledBackApproval}';`,
+      ) === '0',
+    'Rolled-back Approval left entity or event behind',
+  );
   const artifactKey = randomUUID();
   const artifactInput = {
     workspaceId: alpha as WorkspaceId,
@@ -473,6 +594,24 @@ try {
     (await call('integration-bob', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 200,
     'Shared Artifact metadata was not readable',
   );
+  const otherMemberApprovalClient = await pool.connect();
+  try {
+    await otherMemberApprovalClient.query('BEGIN');
+    await otherMemberApprovalClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      bobId,
+    ]);
+    check(
+      (await readApprovalRequest(
+        otherMemberApprovalClient,
+        bobId as UserId,
+        approvalId as ApprovalId,
+      )) === null,
+      'Non-target MEMBER read Approval',
+    );
+  } finally {
+    await otherMemberApprovalClient.query('ROLLBACK');
+    otherMemberApprovalClient.release();
+  }
   check(
     (await call('integration-bob', 'PATCH', `/v1/tasks/${taskId}`, { version: 2, title: 'Denied' }))
       .statusCode === 403,
@@ -1142,6 +1281,9 @@ try {
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM retention_requests WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM approvals WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM artifacts WHERE workspace_id IN (${workspaces

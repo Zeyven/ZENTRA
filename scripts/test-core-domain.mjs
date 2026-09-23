@@ -244,12 +244,12 @@ try {
   );
   const approval = uuid(
     query(
-      `INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${alice}','${task}','${run}','write','resource','${'a'.repeat(64)}',1,now()+interval '1 hour') RETURNING id;`,
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${alice}','${task}','${run}','write','resource','${'a'.repeat(64)}',1,now()+interval '1 hour') RETURNING id; COMMIT;`,
     ),
   );
   assert(Boolean(approval), 'Run-bound Approval missing');
   expectFailure(
-    `INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${alice}','${task}','${otherRun}','write','resource','${'a'.repeat(64)}',1,now()+interval '1 hour');`,
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${alice}','${task}','${otherRun}','write','resource','${'a'.repeat(64)}',1,now()+interval '1 hour'); COMMIT;`,
   );
   console.info(
     'PASS: M2 tenant references, Task/Run/Artifact invariants, versions, audit and atomic outbox.',
