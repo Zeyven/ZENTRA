@@ -7,9 +7,13 @@
     "typecheck": "tsc --noEmit",
     "build": "tsup src/index.ts --format esm --target node24 --clean",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:temporal": "tsx scripts/test-durability.ts"
   },
   "dependencies": {
-    "@ayra/config": "workspace:*"
+    "@ayra/config": "workspace:*",
+    "@temporalio/client": "1.24.0",
+    "@temporalio/worker": "1.24.0",
+    "@temporalio/workflow": "1.24.0"
   }
 }
