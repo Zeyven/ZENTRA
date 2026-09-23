@@ -569,6 +569,44 @@ try {
     taskUpdated.statusCode === 200 && taskUpdated.json().version === 2,
     'Task optimistic update failed',
   );
+  const firstTaskEvents = await call(
+    'integration-alice',
+    'GET',
+    `/v1/tasks/${taskId}/events?limit=1`,
+  );
+  check(
+    firstTaskEvents.statusCode === 200 &&
+      firstTaskEvents.json().events.length === 1 &&
+      firstTaskEvents.json().events[0].type === 'task.created.v1' &&
+      firstTaskEvents.json().nextAfterVersion === 1,
+    'Task event feed did not return its first canonical version',
+  );
+  const resumedTaskEvents = await call(
+    'integration-alice',
+    'GET',
+    `/v1/tasks/${taskId}/events?afterVersion=1`,
+  );
+  check(
+    resumedTaskEvents.statusCode === 200 &&
+      resumedTaskEvents.json().events.length === 1 &&
+      resumedTaskEvents.json().events[0].type === 'task.updated.v1' &&
+      resumedTaskEvents.json().nextAfterVersion === 2,
+    'Task event feed lost a version after reconnect',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/tasks/${taskId}/events?afterVersion=2`)).json()
+      .events.length === 0,
+    'Task event feed duplicated an already-seen version',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/tasks/${taskId}/events`)).statusCode === 404,
+    'Cross-tenant Task events were exposed',
+  );
+  check(
+    migrationSql("SELECT has_table_privilege('application_role', 'outbox_events', 'SELECT');") ===
+      'f',
+    'Application role received direct outbox read access',
+  );
   check(
     (
       await call('integration-alice', 'PATCH', `/v1/tasks/${taskId}`, {
@@ -589,6 +627,10 @@ try {
   check(
     (await call('integration-bob', 'GET', `/v1/tasks/${taskId}`)).statusCode === 200,
     'Shared Task was not readable',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/tasks/${taskId}/events`)).json().events.length === 2,
+    'Active Workspace member could not read Task events',
   );
   check(
     (await call('integration-bob', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 200,
@@ -656,6 +698,10 @@ try {
   check(
     (await call('integration-bob', 'GET', `/v1/tasks/${taskId}`)).statusCode === 404,
     'Suspended member retained Task access',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/tasks/${taskId}/events`)).statusCode === 404,
+    'Suspended member retained Task event access',
   );
   const artifactDeleteClient = await pool.connect();
   try {

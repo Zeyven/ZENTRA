@@ -182,6 +182,63 @@ export function registerTaskRoutes(app: FastifyInstance, services: Services) {
       }),
   );
 
+  app.get<{
+    Params: { id: string };
+    Querystring: { afterVersion?: number; limit?: number };
+  }>(
+    '/v1/tasks/:id/events',
+    {
+      schema: {
+        params: uuidParam,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            afterVersion: { type: 'integer', minimum: 0 },
+            limit: { type: 'integer', minimum: 1, maximum: 100 },
+          },
+        },
+      },
+    },
+    async (request, reply) =>
+      runAuthorized(services, request, reply, async (client, actor) => {
+        const result = await client.query<TaskRow>(selectTask, [request.params.id]);
+        const task = result.rows[0];
+        if (!task) return reply.code(404).send({ error: 'task_not_found' });
+        const role = await roleInWorkspace(client, actor, task.workspace_id);
+        const decision = workspacePolicy.authorize({
+          actor,
+          action: 'task:read',
+          workspaceId: task.workspace_id,
+          membership: role ? { workspaceId: task.workspace_id, role, status: 'ACTIVE' } : null,
+        });
+        if (!decision.allowed) return denied(reply, decision.reason);
+        const events = await client.query<{
+          id: string;
+          event_type: string;
+          event_version: string;
+          payload: Record<string, unknown>;
+          created_at: Date;
+        }>(
+          `SELECT id, event_type, event_version, payload, created_at
+             FROM ayra.read_task_events($1, $2, $3)`,
+          [request.params.id, request.query.afterVersion ?? 0, request.query.limit ?? 50],
+        );
+        const items = events.rows.map((event) => ({
+          id: event.id,
+          type: event.event_type,
+          version: Number(event.event_version),
+          payload: event.payload,
+          createdAt: event.created_at,
+        }));
+        return {
+          taskId: task.id,
+          events: items,
+          nextAfterVersion: items.at(-1)?.version ?? request.query.afterVersion ?? 0,
+        };
+      }),
+  );
+
   app.patch<{ Params: { id: string }; Body: { version: number; title?: string; goal?: string } }>(
     '/v1/tasks/:id',
     {

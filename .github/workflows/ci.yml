@@ -26,6 +26,7 @@ jobs:
       - run: pnpm env:init
       - run: pnpm infra:up
       - run: pnpm infra:verify
+      - run: pnpm test:temporal
       - run: pnpm migrate
       - run: pnpm test:integration
       - run: pnpm test:api

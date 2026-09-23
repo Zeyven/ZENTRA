@@ -1,4 +1,4 @@
-import { Client, Connection } from '@temporalio/client';
+import { Client, Connection, WorkflowExecutionAlreadyStartedError } from '@temporalio/client';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -83,6 +83,18 @@ try {
     () => handle!.query<string>('probeStatus'),
     (state) => state === 'WAITING',
   );
+  let duplicateRejected = false;
+  try {
+    await client.workflow.start('durabilityProbeWorkflow', {
+      args: [workflowId],
+      taskQueue,
+      workflowId,
+    });
+  } catch (error) {
+    if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
+    duplicateRejected = true;
+  }
+  if (!duplicateRejected) throw new Error('Duplicate Workflow start was unexpectedly accepted');
   console.info('Temporal persisted WAITING Workflow state. Killing first Worker.');
   const exited = new Promise<void>((resolveExit) => first.once('exit', () => resolveExit()));
   first.kill('SIGKILL');
@@ -113,7 +125,9 @@ try {
   ) {
     throw new Error(`Unexpected Workflow result: ${JSON.stringify(result)}`);
   }
-  console.info(`PASS: Temporal Workflow ${workflowId} survived Worker SIGKILL and resumed.`);
+  console.info(
+    `PASS: Temporal Workflow ${workflowId} rejected duplicate start, survived Worker SIGKILL and resumed.`,
+  );
 } finally {
   if (handle) {
     try {
