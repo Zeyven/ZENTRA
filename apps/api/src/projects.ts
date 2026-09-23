@@ -1,5 +1,6 @@
 import { workspacePolicy } from '@ayra/auth';
 import type { ProjectId, UserId, WorkspaceId } from '@ayra/domain';
+import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { PoolClient } from 'pg';
 import type { Services } from './request-context';
@@ -65,7 +66,18 @@ export function registerProjectRoutes(app: FastifyInstance, services: Services) 
     async (request, reply) => {
       const name = request.body.name.trim();
       if (!name) return reply.code(400).send({ error: 'invalid_project_name' });
+      const idempotencyKey = request.headers['idempotency-key'];
+      if (
+        typeof idempotencyKey !== 'string' ||
+        idempotencyKey.length < 8 ||
+        idempotencyKey.length > 128
+      )
+        return reply.code(400).send({ error: 'idempotency_key_required' });
       const workspaceId = request.body.workspaceId as WorkspaceId;
+      const description = request.body.description ?? '';
+      const requestHash = createHash('sha256')
+        .update(JSON.stringify({ workspaceId, name, description }))
+        .digest('hex');
       const outcome = await runAuthorized(services, request, reply, async (client, actor) => {
         const role = await roleInWorkspace(client, actor, workspaceId);
         const decision = workspacePolicy.authorize({
@@ -75,14 +87,43 @@ export function registerProjectRoutes(app: FastifyInstance, services: Services) 
           membership: role ? { workspaceId, role, status: 'ACTIVE' } : null,
         });
         if (!decision.allowed) return denied(reply, decision.reason);
+        const reservation = await client.query<{ id: string }>(
+          `INSERT INTO idempotency_records(workspace_id, scope, key, request_hash, expires_at)
+           VALUES ($1, 'project:create', $2, $3, now() + interval '24 hours')
+           ON CONFLICT (workspace_id, scope, key) DO NOTHING RETURNING id`,
+          [workspaceId, idempotencyKey, requestHash],
+        );
+        if (!reservation.rows[0]) {
+          const previous = await client.query<{ request_hash: string; result_ref: string | null }>(
+            `SELECT request_hash, result_ref FROM idempotency_records
+             WHERE workspace_id = $1 AND scope = 'project:create' AND key = $2 FOR UPDATE`,
+            [workspaceId, idempotencyKey],
+          );
+          const record = previous.rows[0];
+          if (!record) throw new Error('Idempotency reservation missing');
+          if (record.request_hash !== requestHash)
+            return reply.code(409).send({ error: 'idempotency_key_conflict' });
+          if (!record.result_ref) throw new Error('Idempotency result missing');
+          const existing = await client.query<ProjectRow>(
+            `SELECT id, workspace_id, name, description, version, archived_at
+             FROM projects WHERE id = $1`,
+            [record.result_ref],
+          );
+          if (!existing.rows[0]) throw new Error('Idempotency Project missing');
+          return projectDto(existing.rows[0]);
+        }
         const result = await client.query<ProjectRow>(
           `INSERT INTO projects(workspace_id, name, description, created_by)
            VALUES ($1, $2, $3, $4)
            RETURNING id, workspace_id, name, description, version, archived_at`,
-          [workspaceId, name, request.body.description ?? '', actor],
+          [workspaceId, name, description, actor],
         );
         const project = result.rows[0];
         if (!project) throw new Error('Project insert returned no row');
+        await client.query('UPDATE idempotency_records SET result_ref = $1 WHERE id = $2', [
+          project.id,
+          reservation.rows[0].id,
+        ]);
         return projectDto(project);
       });
       if (reply.sent) return reply;

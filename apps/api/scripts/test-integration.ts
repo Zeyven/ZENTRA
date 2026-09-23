@@ -53,11 +53,12 @@ async function call(
   method: 'GET' | 'POST' | 'PATCH',
   url: string,
   payload?: object,
+  extraHeaders: Record<string, string> = {},
 ) {
   return app.inject({
     method,
     url,
-    headers: { authorization: `Bearer ${tokens[token] ?? token}` },
+    headers: { authorization: `Bearer ${tokens[token] ?? token}`, ...extraHeaders },
     ...(payload ? { payload } : {}),
   });
 }
@@ -74,6 +75,8 @@ function migrationSql(statement: string) {
       'psql',
       '-X',
       '-q',
+      '-A',
+      '-t',
       '-v',
       'ON_ERROR_STOP=1',
       '-U',
@@ -81,9 +84,10 @@ function migrationSql(statement: string) {
       '-d',
       'ayra',
     ],
-    { input: statement, encoding: 'utf8', stdio: ['pipe', 'ignore', 'ignore'] },
+    { input: statement, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] },
   );
   if (result.status !== 0) throw new Error('Integration fixture SQL failed');
+  return result.stdout.trim();
 }
 try {
   const unauthenticated = await app.inject({ method: 'GET', url: '/v1/account' });
@@ -125,20 +129,68 @@ try {
   check(list.statusCode === 200, 'Workspace list failed');
   const ids = (list.json().workspaces as { id: string }[]).map((row) => row.id);
   check(ids.includes(alpha) && !ids.includes(beta), 'Workspace list crossed tenant boundary');
-  const projectResponse = await call('integration-alice', 'POST', '/v1/projects', {
+  const projectInput = {
     workspaceId: alpha,
     name: 'Integration Project',
     description: 'Task context',
+  };
+  check(
+    (await call('integration-alice', 'POST', '/v1/projects', projectInput)).statusCode === 400,
+    'Project accepted missing idempotency key',
+  );
+  const projectKey = randomUUID();
+  const projectResponse = await call('integration-alice', 'POST', '/v1/projects', projectInput, {
+    'idempotency-key': projectKey,
   });
   check(projectResponse.statusCode === 201, 'Project creation failed');
   const projectId = expectUuid(projectResponse.json().id);
+  const replay = await call('integration-alice', 'POST', '/v1/projects', projectInput, {
+    'idempotency-key': projectKey,
+  });
+  check(
+    replay.statusCode === 201 && replay.json().id === projectId,
+    'Project idempotency replay changed result',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        '/v1/projects',
+        { ...projectInput, name: 'Different' },
+        {
+          'idempotency-key': projectKey,
+        },
+      )
+    ).statusCode === 409,
+    'Changed payload reused idempotency key',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${projectId}' AND event_type = 'project.created.v1';`,
+    ) === '1',
+    'Idempotency replay duplicated outbox',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM audit_events WHERE aggregate_id = '${projectId}' AND action = 'project.created';`,
+    ) === '1',
+    'Idempotency replay duplicated audit',
+  );
   check(
     (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 404,
     'Bob read Alice Project',
   );
   check(
-    (await call('integration-bob', 'POST', '/v1/projects', { workspaceId: alpha, name: 'Denied' }))
-      .statusCode === 404,
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        '/v1/projects',
+        { workspaceId: alpha, name: 'Denied' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 404,
     'Bob created Project in Alice Workspace',
   );
   const projectList = await call('integration-alice', 'GET', `/v1/projects?workspaceId=${alpha}`);
@@ -246,7 +298,10 @@ try {
       .map((id) => `'${id}'`)
       .join(',');
     const workspaceDelete = workspaces.length
-      ? `DELETE FROM projects WHERE workspace_id IN (${workspaces
+      ? `DELETE FROM idempotency_records WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM projects WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM audit_events WHERE workspace_id IN (${workspaces
