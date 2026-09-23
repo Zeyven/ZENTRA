@@ -30,7 +30,20 @@ function run(args, capture = false) {
   }
   return result.stdout?.trim();
 }
-if (action === 'up') run(['up', '-d', '--wait', '--wait-timeout', '180']);
+if (action === 'up') {
+  run([
+    'up',
+    '-d',
+    '--wait',
+    '--wait-timeout',
+    '180',
+    'postgres',
+    'redis',
+    'temporal',
+    'object-store',
+  ]);
+  run(['run', '--rm', 'object-store-init'], true);
+}
 if (action === 'down') run(['down']); // Deliberately preserves data volumes.
 if (action === 'verify') {
   const version = run(
