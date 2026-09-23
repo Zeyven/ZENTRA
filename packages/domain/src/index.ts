@@ -6,6 +6,10 @@ export type WorkspaceId = EntityId<'Workspace'>;
 export type ProjectId = EntityId<'Project'>;
 export type TaskId = EntityId<'Task'>;
 export type RunId = EntityId<'Run'>;
+export type ConversationId = EntityId<'Conversation'>;
+export type ResourceId = EntityId<'Resource'>;
+export type ArtifactId = EntityId<'Artifact'>;
+export type ApprovalId = EntityId<'Approval'>;
 export const taskStatuses = [
   'DRAFT',
   'QUEUED',

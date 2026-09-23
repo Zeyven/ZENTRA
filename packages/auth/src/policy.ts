@@ -19,6 +19,10 @@ export type PolicyAction =
   | 'resource:read'
   | 'resource:update'
   | 'resource:delete'
+  | 'artifact:create'
+  | 'artifact:read'
+  | 'artifact:update'
+  | 'artifact:delete'
   | 'task:create'
   | 'task:read'
   | 'task:update'
@@ -58,6 +62,9 @@ export const workspacePolicy: PolicyEngine = {
         action === 'resource:create' ||
         action === 'resource:update' ||
         action === 'resource:delete' ||
+        action === 'artifact:create' ||
+        action === 'artifact:update' ||
+        action === 'artifact:delete' ||
         action === 'task:create' ||
         action === 'task:update' ||
         action === 'task:delete') &&

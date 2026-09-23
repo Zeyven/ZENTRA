@@ -3,7 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 import pg from 'pg';
 import { createClerkIdentityProvider } from '@ayra/auth';
+import type { ArtifactId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
 import { createApp } from '../src/app';
+import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artifacts';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -237,6 +239,85 @@ try {
     'Task draft creation failed or invented a Run',
   );
   const taskId = expectUuid(taskResponse.json().id);
+  const artifactKey = randomUUID();
+  const artifactInput = {
+    workspaceId: alpha as WorkspaceId,
+    taskId: taskId as TaskId,
+    title: 'Generated report metadata',
+    objectRef: 'test-pending-object',
+    provenance: { origin: 'integration-test' },
+    idempotencyKey: artifactKey,
+  };
+  const artifactClient = await pool.connect();
+  let artifactId: string;
+  try {
+    await artifactClient.query('BEGIN');
+    await artifactClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[0]),
+    ]);
+    const created = await createArtifactMetadata(
+      artifactClient,
+      expectUuid(users[0]) as UserId,
+      artifactInput,
+    );
+    artifactId = expectUuid(created.id);
+    const repeated = await createArtifactMetadata(
+      artifactClient,
+      expectUuid(users[0]) as UserId,
+      artifactInput,
+    );
+    check(repeated.id === artifactId, 'Artifact internal creation replay changed identity');
+    await artifactClient.query('COMMIT');
+  } catch (error) {
+    await artifactClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    artifactClient.release();
+  }
+  const artifactRead = await call('integration-alice', 'GET', `/v1/artifacts/${artifactId}`);
+  check(
+    artifactRead.statusCode === 200 &&
+      artifactRead.json().taskId === taskId &&
+      !JSON.stringify(artifactRead.json()).includes('test-pending-object'),
+    'Artifact metadata read failed or exposed object storage reference',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 404,
+    'Bob read Alice Artifact',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', '/v1/artifacts', {
+        ...artifactInput,
+      })
+    ).statusCode === 404,
+    'Artifact public create route unexpectedly exists',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${artifactId}' AND event_type = 'artifact.created.v1';`,
+    ) === '1',
+    'Artifact idempotency replay duplicated outbox',
+  );
+  const rollbackArtifact = expectUuid(
+    migrationSql(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';
+       INSERT INTO artifacts(workspace_id, task_id, title, object_ref, created_by)
+       VALUES ('${alpha}', '${taskId}', 'Rollback output', 'test-rollback',
+         '${expectUuid(users[0])}') RETURNING id;
+       ROLLBACK;`,
+    ),
+  );
+  check(
+    migrationSql(`SELECT count(*) FROM artifacts WHERE id = '${rollbackArtifact}';`) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${rollbackArtifact}';`,
+      ) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${rollbackArtifact}';`,
+      ) === '0',
+    'Rolled-back Artifact left entity or event behind',
+  );
   check(
     (
       await call('integration-alice', 'POST', '/v1/tasks', taskInput, {
@@ -301,6 +382,10 @@ try {
     'Shared Task was not readable',
   );
   check(
+    (await call('integration-bob', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 200,
+    'Shared Artifact metadata was not readable',
+  );
+  check(
     (await call('integration-bob', 'PATCH', `/v1/tasks/${taskId}`, { version: 2, title: 'Denied' }))
       .statusCode === 403,
     'MEMBER modified Task',
@@ -345,6 +430,50 @@ try {
     (await call('integration-bob', 'GET', `/v1/tasks/${taskId}`)).statusCode === 404,
     'Suspended member retained Task access',
   );
+  const artifactDeleteClient = await pool.connect();
+  try {
+    await artifactDeleteClient.query('BEGIN');
+    await artifactDeleteClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[0]),
+    ]);
+    const deleted = await softDeleteArtifactMetadata(
+      artifactDeleteClient,
+      expectUuid(users[0]) as UserId,
+      artifactId as ArtifactId,
+      1,
+    );
+    check(deleted.version === 2 && Boolean(deleted.deletedAt), 'Artifact soft delete failed');
+    const replay = await createArtifactMetadata(
+      artifactDeleteClient,
+      expectUuid(users[0]) as UserId,
+      artifactInput,
+    );
+    check(
+      replay.id === artifactId && Boolean(replay.deletedAt),
+      'Deleted Artifact replay lost canonical result',
+    );
+    await artifactDeleteClient.query('COMMIT');
+  } catch (error) {
+    await artifactDeleteClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    artifactDeleteClient.release();
+  }
+  check(
+    (await call('integration-alice', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 404,
+    'Soft-deleted Artifact remained visible',
+  );
+  for (const eventType of ['artifact.created.v1', 'artifact.deleted.v1']) {
+    check(
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${artifactId}' AND action = '${eventType}';`,
+      ) === '1' &&
+        migrationSql(
+          `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${artifactId}' AND event_type = '${eventType}';`,
+        ) === '1',
+      `Artifact ${eventType} event missing or duplicated`,
+    );
+  }
   const secondSession = await call('integration-alice-2', 'GET', '/v1/account');
   check(
     secondSession.statusCode === 200 && secondSession.json().id === users[0],
@@ -907,6 +1036,9 @@ try {
       .join(',');
     const workspaceDelete = workspaces.length
       ? `DELETE FROM idempotency_records WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM artifacts WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM resources WHERE workspace_id IN (${workspaces
