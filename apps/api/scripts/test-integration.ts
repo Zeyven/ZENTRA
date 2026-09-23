@@ -1301,6 +1301,68 @@ try {
     ).statusCode === 200,
     'Second Project restore failed',
   );
+  const startDraft = await call(
+    'integration-alice',
+    'POST',
+    '/v1/tasks',
+    {
+      workspaceId: alpha,
+      title: 'Durable start handoff',
+      goal: 'Verify the canonical start transaction',
+      type: 'RESEARCH',
+    },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(startDraft.statusCode === 201, 'Task start fixture could not be created');
+  const startTaskId = expectUuid(startDraft.json().id);
+  const startClient = await pool.connect();
+  let startedRunId = '';
+  try {
+    await startClient.query('BEGIN');
+    await startClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [bobId]);
+    const deniedStart = await startClient.query<{ result_code: string }>(
+      'SELECT result_code FROM ayra.start_task_attempt($1, $2)',
+      [startTaskId, 1],
+    );
+    check(deniedStart.rows[0]?.result_code === 'NOT_FOUND', 'Suspended member started Task');
+    await startClient.query('ROLLBACK');
+
+    await startClient.query('BEGIN');
+    await startClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [users[0]]);
+    const started = await startClient.query<{
+      result_code: string;
+      run_id: string;
+      task_version: string;
+    }>('SELECT * FROM ayra.start_task_attempt($1, $2)', [startTaskId, 1]);
+    startedRunId = expectUuid(started.rows[0]?.run_id);
+    check(
+      started.rows[0]?.result_code === 'STARTED' && Number(started.rows[0].task_version) === 2,
+      'Canonical Task start did not advance version and create a Run',
+    );
+    const duplicate = await startClient.query<{ result_code: string }>(
+      'SELECT result_code FROM ayra.start_task_attempt($1, $2)',
+      [startTaskId, 1],
+    );
+    check(
+      duplicate.rows[0]?.result_code === 'CONFLICT',
+      'Duplicate Task start created another Run',
+    );
+    await startClient.query('COMMIT');
+  } finally {
+    await startClient.query('ROLLBACK');
+    startClient.release();
+  }
+  const queued = await call('integration-alice', 'GET', `/v1/tasks/${startTaskId}`);
+  check(
+    queued.json().status === 'QUEUED' && queued.json().currentRunId === startedRunId,
+    'Queued Task lost its canonical Run identity',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${startTaskId}' AND event_type = 'task.status_changed.v1';`,
+    ) === '1',
+    'Task start did not write exactly one transactional Outbox event',
+  );
   check(
     (
       await call('integration-alice', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`)
@@ -1335,7 +1397,14 @@ try {
           .join(',')}); DELETE FROM artifacts WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
-          .join(',')}); DELETE FROM runs WHERE workspace_id IN (${workspaces
+          .join(
+            ',',
+          )}); UPDATE tasks SET current_run_id = NULL, version = version + 1 WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(
+            ',',
+          )}) AND current_run_id IS NOT NULL; DELETE FROM runs WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM resources WHERE workspace_id IN (${workspaces
@@ -1378,7 +1447,7 @@ try {
         'ayra',
       ],
       {
-        input: `BEGIN; DELETE FROM workspace_memberships WHERE user_id IN (${ids}); ${workspaceDelete} DELETE FROM account_sessions WHERE user_id IN (${ids}); DELETE FROM external_identities WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids}); COMMIT;`,
+        input: `BEGIN; SELECT set_config('ayra.actor_user_id', '${expectUuid(users[0])}', true); DELETE FROM workspace_memberships WHERE user_id IN (${ids}); ${workspaceDelete} DELETE FROM account_sessions WHERE user_id IN (${ids}); DELETE FROM external_identities WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids}); COMMIT;`,
         encoding: 'utf8',
         stdio: ['pipe', 'ignore', 'ignore'],
       },
