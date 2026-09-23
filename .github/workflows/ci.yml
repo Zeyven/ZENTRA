@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: ayra-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   engineering:
     runs-on: ubuntu-latest
@@ -26,6 +26,9 @@ jobs:
       - run: pnpm env:init
       - run: pnpm infra:up
       - run: pnpm infra:verify
+      - if: failure()
+        name: Temporal startup diagnostics
+        run: docker compose --project-name ayra-local --env-file .env.local -f infrastructure/docker/compose.yaml logs --no-color --tail 80 temporal
       - if: always()
         run: pnpm infra:down
   desktop-native:
