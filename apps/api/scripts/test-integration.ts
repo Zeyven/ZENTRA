@@ -483,6 +483,172 @@ try {
       `Project ${eventType} audit missing or duplicated`,
     );
   }
+  const conversationInput = { workspaceId: alpha, projectId, title: 'Research discussion' };
+  const rollbackConversation = expectUuid(
+    migrationSql(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';
+       INSERT INTO conversations(workspace_id, project_id, title, created_by)
+       VALUES ('${alpha}', '${projectId}', 'Rolled back', '${expectUuid(users[0])}') RETURNING id;
+       ROLLBACK;`,
+    ),
+  );
+  check(
+    migrationSql(`SELECT count(*) FROM conversations WHERE id = '${rollbackConversation}';`) ===
+      '0' &&
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${rollbackConversation}';`,
+      ) === '0' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${rollbackConversation}';`,
+      ) === '0',
+    'Rolled-back Conversation left entity or event behind',
+  );
+  const conversationKey = randomUUID();
+  check(
+    (await call('integration-alice', 'POST', '/v1/conversations', conversationInput)).statusCode ===
+      400,
+    'Conversation accepted missing idempotency key',
+  );
+  const createdConversation = await call(
+    'integration-alice',
+    'POST',
+    '/v1/conversations',
+    conversationInput,
+    { 'idempotency-key': conversationKey },
+  );
+  check(createdConversation.statusCode === 201, 'Conversation creation failed');
+  const conversationId = expectUuid(createdConversation.json().id);
+  migrationSql(
+    `UPDATE workspace_memberships SET status = 'ACTIVE'
+     WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/conversations/${conversationId}`)).statusCode ===
+      200,
+    'Shared Conversation was not readable',
+  );
+  check(
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        '/v1/conversations',
+        {
+          ...conversationInput,
+          title: 'Denied',
+        },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 403,
+    'MEMBER created Conversation',
+  );
+  check(
+    (
+      await call('integration-bob', 'POST', `/v1/conversations/${conversationId}/archive`, {
+        version: 1,
+      })
+    ).statusCode === 403,
+    'MEMBER archived Conversation',
+  );
+  migrationSql(
+    `UPDATE workspace_memberships SET status = 'SUSPENDED'
+     WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', '/v1/conversations', conversationInput, {
+        'idempotency-key': conversationKey,
+      })
+    ).json().id === conversationId,
+    'Conversation idempotency replay changed identity',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/conversations/${conversationId}`)).statusCode ===
+      404,
+    'Bob read Alice Conversation',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/conversations?workspaceId=${alpha}`)).json()
+      .conversations[0]?.id === conversationId,
+    'Conversation list missed entity',
+  );
+  const renamedConversation = await call(
+    'integration-alice',
+    'PATCH',
+    `/v1/conversations/${conversationId}`,
+    { version: 1, title: 'Revised discussion' },
+  );
+  check(
+    renamedConversation.statusCode === 200 && renamedConversation.json().version === 2,
+    'Conversation versioned update failed',
+  );
+  check(
+    (
+      await call('integration-alice', 'PATCH', `/v1/conversations/${conversationId}`, {
+        version: 1,
+        title: 'Stale',
+      })
+    ).statusCode === 409,
+    'Stale Conversation update succeeded',
+  );
+  const archivedConversation = await call(
+    'integration-alice',
+    'POST',
+    `/v1/conversations/${conversationId}/archive`,
+    { version: 2 },
+  );
+  check(
+    archivedConversation.statusCode === 200 && archivedConversation.json().archivedAt,
+    'Conversation archive failed',
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/conversations/${conversationId}`)).statusCode ===
+      404,
+    'Archived Conversation remained active',
+  );
+  check(
+    (
+      await call('integration-alice', 'GET', `/v1/conversations?workspaceId=${alpha}&archived=true`)
+    ).json().conversations[0]?.id === conversationId,
+    'Conversation archive list missed entity',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/conversations/${conversationId}/restore`, {
+        version: 2,
+      })
+    ).statusCode === 409,
+    'Stale Conversation restore succeeded',
+  );
+  const restoredConversation = await call(
+    'integration-alice',
+    'POST',
+    `/v1/conversations/${conversationId}/restore`,
+    { version: 3 },
+  );
+  check(
+    restoredConversation.statusCode === 200 && restoredConversation.json().archivedAt === null,
+    'Conversation restore failed',
+  );
+  for (const eventType of [
+    'conversation.created.v1',
+    'conversation.updated.v1',
+    'conversation.archived.v1',
+    'conversation.restored.v1',
+  ]) {
+    check(
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${conversationId}' AND event_type = '${eventType}';`,
+      ) === '1',
+      `Conversation ${eventType} outbox missing or duplicated`,
+    );
+    check(
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${conversationId}' AND action = '${eventType}';`,
+      ) === '1',
+      `Conversation ${eventType} audit missing or duplicated`,
+    );
+  }
   check(
     (
       await call('integration-alice', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`)
@@ -506,6 +672,9 @@ try {
       .join(',');
     const workspaceDelete = workspaces.length
       ? `DELETE FROM idempotency_records WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM conversations WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM tasks WHERE workspace_id IN (${workspaces

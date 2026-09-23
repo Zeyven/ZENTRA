@@ -5,6 +5,7 @@ import type { Pool } from 'pg';
 import { registerWorkspaceRoutes } from './workspaces';
 import { registerProjectRoutes } from './projects';
 import { registerTaskRoutes } from './tasks';
+import { registerConversationRoutes } from './conversations';
 export async function createApp(services: { identity?: IdentityProvider; pool?: Pool } = {}) {
   const app = Fastify({
     logger: {
@@ -43,6 +44,7 @@ export async function createApp(services: { identity?: IdentityProvider; pool?: 
   registerWorkspaceRoutes(app, services);
   registerProjectRoutes(app, services);
   registerTaskRoutes(app, services);
+  registerConversationRoutes(app, services);
   app.get('/openapi.json', async () => app.swagger());
   return app;
 }
