@@ -1,0 +1,40 @@
+{
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "name": "ayra",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "pnpm --filter @ayra/web dev",
+    "env:init": "node scripts/env-init.mjs",
+    "infra:up": "node scripts/infra.mjs up",
+    "infra:down": "node scripts/infra.mjs down",
+    "infra:verify": "node scripts/infra.mjs verify",
+    "build": "pnpm -r --workspace-concurrency=2 build",
+    "build:desktop:native": "pnpm --filter @ayra/desktop build:native",
+    "lint": "eslint . && node scripts/check-boundaries.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "eslint": "10.11.0",
+    "@eslint/js": "10.0.1",
+    "typescript-eslint": "8.70.1",
+    "prettier": "3.9.9",
+    "vitest": "5.0.1",
+    "tsx": "4.23.15",
+    "tsup": "8.5.1",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "yaml": "2.8.1"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "AYRA",
+    "slug": "ayra",
+    "version": "0.0.0",
+    "scheme": "ayra",
+    "platforms": ["ios", "android", "web"],
+    "web": {
+      "bundler": "metro"
+    },
+    "ios": {
+      "bundleIdentifier": "dev.ayra.prototype"
+    },
+    "android": {
+      "package": "dev.ayra.prototype"
+    }
+  }
+}

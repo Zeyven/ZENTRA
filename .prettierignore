@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+node_modules
+dist
+.next
+.expo
+target
+.plan-build
+docs/baseline/white-paper-v1.0.txt
+AYRA_实施计划_v1.0.md
+
+.local/
+.codex/
+
+**/next-env.d.ts

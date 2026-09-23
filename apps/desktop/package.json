@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "name": "@ayra/desktop",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "build:native": "tauri build --no-bundle",
+    "dev:native": "tauri dev"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "@ayra/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "8.3.0",
+    "@tauri-apps/cli": "2.11.5"
+  }
+}

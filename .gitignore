@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+.expo/
+coverage/
+*.tsbuildinfo
+target/
+.env*
+!.env.example
+.DS_Store
+.plan-build/
+.local/
+
+# Private source document retained locally; publish only its digest.
+/docs/baseline/white-paper-v1.0.txt

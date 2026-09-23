@@ -1,0 +1,46 @@
+name: M0 engineering gates
+on:
+  pull_request:
+    branches: [ZA-AYRA]
+  push:
+    branches: [ZA-AYRA]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ayra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  engineering:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm env:init
+      - run: pnpm infra:up
+      - run: pnpm infra:verify
+      - if: always()
+        run: pnpm infra:down
+  desktop-native:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:desktop:native
