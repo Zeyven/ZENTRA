@@ -14,11 +14,13 @@ const users: string[] = [];
 const workspaces: string[] = [];
 const identity: IdentityProvider = {
   async verifySession(token) {
-    if (token !== 'integration-alice' && token !== 'integration-bob') return null;
+    if (!['integration-alice', 'integration-alice-2', 'integration-bob'].includes(token))
+      return null;
+    const accountToken = token === 'integration-alice-2' ? 'integration-alice' : token;
     return {
       provider: 'clerk',
-      externalSubject: `${nonce}-${token}`,
-      sessionId: `test-${nonce}`,
+      externalSubject: `${nonce}-${accountToken}`,
+      sessionId: `test-${nonce}-${token}`,
     };
   },
 };
@@ -80,6 +82,53 @@ try {
   check(list.statusCode === 200, 'Workspace list failed');
   const ids = (list.json().workspaces as { id: string }[]).map((row) => row.id);
   check(ids.includes(alpha) && !ids.includes(beta), 'Workspace list crossed tenant boundary');
+  const secondSession = await call('integration-alice-2', 'GET', '/v1/account');
+  check(
+    secondSession.statusCode === 200 && secondSession.json().id === users[0],
+    'Second session did not resolve same AYRA account',
+  );
+  const sessions = await call('integration-alice', 'GET', '/v1/account/sessions');
+  check(
+    sessions.statusCode === 200 && sessions.json().sessions.length === 2,
+    'Active sessions not listed',
+  );
+  const current = (sessions.json().sessions as { id: string; current: boolean }[]).find(
+    (row) => row.current,
+  );
+  const currentSessionId = expectUuid(current?.id);
+  check(!JSON.stringify(sessions.json()).includes('session_hash'), 'Provider session hash leaked');
+  check(
+    (await call('integration-bob', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`))
+      .statusCode === 404,
+    'Bob revoked Alice session',
+  );
+  check(
+    (await call('integration-alice', 'POST', '/v1/account/sessions/revoke-others')).json()
+      .revoked === 1,
+    'Other session not revoked',
+  );
+  check(
+    (await call('integration-alice-2', 'GET', '/v1/account')).statusCode === 401,
+    'Revoked session retained access',
+  );
+  check(
+    (await call('integration-alice', 'GET', '/v1/account')).statusCode === 200,
+    'Current session was revoked',
+  );
+  check(
+    (await call('integration-bob', 'GET', '/v1/account')).statusCode === 200,
+    'Another account session was affected',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/account/sessions/${currentSessionId}/revoke`)
+    ).json().revoked === true,
+    'Current session could not be revoked',
+  );
+  check(
+    (await call('integration-alice', 'GET', '/v1/account')).statusCode === 401,
+    'Explicitly revoked current session retained access',
+  );
   console.info(
     'PASS: verified-session API account, workspace creation, and cross-tenant isolation.',
   );
@@ -114,7 +163,7 @@ try {
         'ayra',
       ],
       {
-        input: `BEGIN; DELETE FROM workspace_memberships WHERE user_id IN (${ids}); ${workspaceDelete} DELETE FROM external_identities WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids}); COMMIT;`,
+        input: `BEGIN; DELETE FROM workspace_memberships WHERE user_id IN (${ids}); ${workspaceDelete} DELETE FROM account_sessions WHERE user_id IN (${ids}); DELETE FROM external_identities WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids}); COMMIT;`,
         encoding: 'utf8',
         stdio: ['pipe', 'ignore', 'ignore'],
       },

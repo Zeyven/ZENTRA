@@ -1,6 +1,7 @@
-import type { IdentityProvider } from '@ayra/auth';
+import type { IdentityProvider, VerifiedSession } from '@ayra/auth';
 import { workspacePolicy } from '@ayra/auth';
 import type { UserId, WorkspaceId } from '@ayra/domain';
+import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 
@@ -8,24 +9,35 @@ interface Services {
   identity?: IdentityProvider;
   pool?: Pool;
 }
+class RevokedSessionError extends Error {}
 
 async function withActor<T>(
   pool: Pool,
-  provider: string,
-  subject: string,
-  work: (client: PoolClient, actor: UserId) => Promise<T>,
+  session: VerifiedSession,
+  work: (client: PoolClient, actor: UserId, currentSessionId: string) => Promise<T>,
 ) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const resolved = await client.query<{ id: UserId }>(
       'SELECT ayra.resolve_external_identity($1, $2) AS id',
-      [provider, subject],
+      [session.provider, session.externalSubject],
     );
     const actor = resolved.rows[0]?.id;
     if (!actor) throw new Error('AYRA identity resolution failed');
     await client.query("SELECT set_config('ayra.actor_user_id', $1, true)", [actor]);
-    const result = await work(client, actor);
+    const sessionHash = createHash('sha256')
+      .update(session.provider)
+      .update('\0')
+      .update(session.sessionId)
+      .digest('hex');
+    const registered = await client.query<{ id: string | null }>(
+      'SELECT ayra.register_verified_session($1, $2) AS id',
+      [session.provider, sessionHash],
+    );
+    const currentSessionId = registered.rows[0]?.id;
+    if (!currentSessionId) throw new RevokedSessionError('AYRA session revoked');
+    const result = await work(client, actor, currentSessionId);
     await client.query('COMMIT');
     return result;
   } catch (error) {
@@ -40,7 +52,7 @@ export function registerWorkspaceRoutes(app: FastifyInstance, services: Services
   async function run<T>(
     request: FastifyRequest,
     reply: FastifyReply,
-    work: (client: PoolClient, actor: UserId) => Promise<T>,
+    work: (client: PoolClient, actor: UserId, currentSessionId: string) => Promise<T>,
   ) {
     if (!services.identity || !services.pool)
       return reply.code(503).send({ error: 'identity_unavailable' });
@@ -49,8 +61,10 @@ export function registerWorkspaceRoutes(app: FastifyInstance, services: Services
     const session = await services.identity.verifySession(match[1]);
     if (!session) return reply.code(401).send({ error: 'invalid_session' });
     try {
-      return await withActor(services.pool, session.provider, session.externalSubject, work);
+      return await withActor(services.pool, session, work);
     } catch (error) {
+      if (error instanceof RevokedSessionError)
+        return reply.code(401).send({ error: 'session_revoked' });
       request.log.error({ err: error }, 'Account database operation failed');
       return reply.code(503).send({ error: 'service_unavailable' });
     }
@@ -66,6 +80,60 @@ export function registerWorkspaceRoutes(app: FastifyInstance, services: Services
       if (!row) return reply.code(404).send({ error: 'account_not_found' });
       return { id: row.id, displayName: row.display_name };
     }),
+  );
+
+  app.get('/v1/account/sessions', async (request, reply) =>
+    run(request, reply, async (client, _actor, currentSessionId) => {
+      const result = await client.query<{
+        id: string;
+        created_at: Date;
+        last_seen_at: Date;
+      }>(
+        `SELECT id, created_at, last_seen_at FROM account_sessions
+         WHERE user_id = ayra.current_actor_id() AND revoked_at IS NULL
+         ORDER BY created_at DESC`,
+      );
+      return {
+        sessions: result.rows.map((row) => ({
+          id: row.id,
+          createdAt: row.created_at,
+          lastSeenAt: row.last_seen_at,
+          current: row.id === currentSessionId,
+        })),
+      };
+    }),
+  );
+
+  app.post('/v1/account/sessions/revoke-others', async (request, reply) =>
+    run(request, reply, async (client, _actor, currentSessionId) => {
+      const result = await client.query<{ revoked: number }>(
+        'SELECT ayra.revoke_other_sessions($1) AS revoked',
+        [currentSessionId],
+      );
+      return { revoked: result.rows[0]?.revoked ?? 0 };
+    }),
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/v1/account/sessions/:id/revoke',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', format: 'uuid' } },
+        },
+      },
+    },
+    async (request, reply) =>
+      run(request, reply, async (client) => {
+        const result = await client.query<{ revoked: boolean }>(
+          'SELECT ayra.revoke_account_session($1) AS revoked',
+          [request.params.id],
+        );
+        if (!result.rows[0]?.revoked) return reply.code(404).send({ error: 'session_not_found' });
+        return { revoked: true };
+      }),
   );
 
   app.get('/v1/workspaces', async (request, reply) =>
