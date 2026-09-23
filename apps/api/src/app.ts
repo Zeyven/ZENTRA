@@ -3,6 +3,7 @@ import swagger from '@fastify/swagger';
 import type { IdentityProvider } from '@ayra/auth';
 import type { Pool } from 'pg';
 import { registerWorkspaceRoutes } from './workspaces';
+import { registerProjectRoutes } from './projects';
 export async function createApp(services: { identity?: IdentityProvider; pool?: Pool } = {}) {
   const app = Fastify({
     logger: {
@@ -39,6 +40,7 @@ export async function createApp(services: { identity?: IdentityProvider; pool?: 
     }),
   );
   registerWorkspaceRoutes(app, services);
+  registerProjectRoutes(app, services);
   app.get('/openapi.json', async () => app.swagger());
   return app;
 }

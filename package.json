@@ -17,6 +17,7 @@
     "migrate": "node scripts/migrate.mjs",
     "test:integration": "node scripts/test-rls.mjs",
     "test:api": "tsx apps/api/scripts/test-integration.ts",
+    "test:core": "node scripts/test-core-domain.mjs",
     "build": "pnpm -r --workspace-concurrency=2 build",
     "build:desktop:native": "pnpm --filter @ayra/desktop build:native",
     "lint": "eslint . && node scripts/check-boundaries.mjs",

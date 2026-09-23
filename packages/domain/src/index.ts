@@ -3,6 +3,7 @@ declare const idBrand: unique symbol;
 export type EntityId<T extends string> = string & { readonly [idBrand]: T };
 export type UserId = EntityId<'User'>;
 export type WorkspaceId = EntityId<'Workspace'>;
+export type ProjectId = EntityId<'Project'>;
 export type TaskId = EntityId<'Task'>;
 export type RunId = EntityId<'Run'>;
 export const taskStatuses = [

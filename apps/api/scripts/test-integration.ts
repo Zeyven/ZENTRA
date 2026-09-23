@@ -48,7 +48,12 @@ function expectUuid(value: unknown): string {
   if (typeof value !== 'string' || !uuid.test(value)) throw new Error('Expected AYRA UUID');
   return value;
 }
-async function call(token: string, method: 'GET' | 'POST', url: string, payload?: object) {
+async function call(
+  token: string,
+  method: 'GET' | 'POST' | 'PATCH',
+  url: string,
+  payload?: object,
+) {
   return app.inject({
     method,
     url,
@@ -58,6 +63,27 @@ async function call(token: string, method: 'GET' | 'POST', url: string, payload?
 }
 function check(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
+}
+function migrationSql(statement: string) {
+  const result = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      'ayra-local-postgres-1',
+      'psql',
+      '-X',
+      '-q',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-U',
+      'migration_role',
+      '-d',
+      'ayra',
+    ],
+    { input: statement, encoding: 'utf8', stdio: ['pipe', 'ignore', 'ignore'] },
+  );
+  if (result.status !== 0) throw new Error('Integration fixture SQL failed');
 }
 try {
   const unauthenticated = await app.inject({ method: 'GET', url: '/v1/account' });
@@ -99,6 +125,68 @@ try {
   check(list.statusCode === 200, 'Workspace list failed');
   const ids = (list.json().workspaces as { id: string }[]).map((row) => row.id);
   check(ids.includes(alpha) && !ids.includes(beta), 'Workspace list crossed tenant boundary');
+  const projectResponse = await call('integration-alice', 'POST', '/v1/projects', {
+    workspaceId: alpha,
+    name: 'Integration Project',
+    description: 'Task context',
+  });
+  check(projectResponse.statusCode === 201, 'Project creation failed');
+  const projectId = expectUuid(projectResponse.json().id);
+  check(
+    (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 404,
+    'Bob read Alice Project',
+  );
+  check(
+    (await call('integration-bob', 'POST', '/v1/projects', { workspaceId: alpha, name: 'Denied' }))
+      .statusCode === 404,
+    'Bob created Project in Alice Workspace',
+  );
+  const projectList = await call('integration-alice', 'GET', `/v1/projects?workspaceId=${alpha}`);
+  check(
+    projectList.statusCode === 200 && projectList.json().projects[0]?.id === projectId,
+    'Project list missed canonical Project',
+  );
+  const updated = await call('integration-alice', 'PATCH', `/v1/projects/${projectId}`, {
+    version: 1,
+    name: 'Updated Project',
+  });
+  check(
+    updated.statusCode === 200 && updated.json().version === 2,
+    'Optimistic Project update failed',
+  );
+  check(
+    (
+      await call('integration-alice', 'PATCH', `/v1/projects/${projectId}`, {
+        version: 1,
+        name: 'Stale',
+      })
+    ).statusCode === 409,
+    'Stale Project update succeeded',
+  );
+  const bobId = expectUuid(users[1]);
+  migrationSql(
+    `INSERT INTO workspace_memberships(workspace_id,user_id,role,status) VALUES ('${alpha}','${bobId}','MEMBER','ACTIVE');`,
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 200,
+    'Shared Project was not readable',
+  );
+  check(
+    (
+      await call('integration-bob', 'PATCH', `/v1/projects/${projectId}`, {
+        version: 2,
+        name: 'Denied',
+      })
+    ).statusCode === 403,
+    'MEMBER modified Project',
+  );
+  migrationSql(
+    `UPDATE workspace_memberships SET status = 'SUSPENDED' WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 404,
+    'Suspended member retained Project access',
+  );
   const secondSession = await call('integration-alice-2', 'GET', '/v1/account');
   check(
     secondSession.statusCode === 200 && secondSession.json().id === users[0],
@@ -158,7 +246,16 @@ try {
       .map((id) => `'${id}'`)
       .join(',');
     const workspaceDelete = workspaces.length
-      ? `DELETE FROM workspaces WHERE id IN (${workspaces
+      ? `DELETE FROM projects WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM audit_events WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM outbox_events WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM workspaces WHERE id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')});`

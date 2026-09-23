@@ -29,6 +29,7 @@ jobs:
       - run: pnpm migrate
       - run: pnpm test:integration
       - run: pnpm test:api
+      - run: pnpm test:core
       - if: failure()
         name: Temporal startup diagnostics
         run: docker compose --project-name ayra-local --env-file .env.local -f infrastructure/docker/compose.yaml logs --no-color --tail 80 temporal

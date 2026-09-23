@@ -1,8 +1,8 @@
 # AYRA
 
-按照 **AYRA BASELINE v1.0 — FROZEN** 实施的通用智能体工作空间。M0 工程基础与 M1 身份、Workspace、Policy 的工程 DoD 已通过；完整业务能力和生产就绪状态尚未验证。
+按照 **AYRA BASELINE v1.0 — FROZEN** 实施的通用智能体工作空间。M0 工程基础与 M1 身份、Workspace、Policy 的工程 DoD 已通过；M2 Core Domain 正在实施。完整业务能力和生产就绪状态尚未验证。
 
-原始白皮书未修改。完整白皮书及其文本提取作为本地实施输入，不随公开源码发布；原文件 SHA-256 位于 `docs/baseline/`。实施记录见 `docs/adr/0001-m0-baseline.md`、`docs/implementation/M0.md` 和 `docs/implementation/M1.md`。按白皮书逐阶段推进。
+原始白皮书未修改。完整白皮书及其文本提取作为本地实施输入，不随公开源码发布；原文件 SHA-256 位于 `docs/baseline/`。实施记录见 `docs/adr/0001-m0-baseline.md` 和 `docs/implementation/M0.md`、`M1.md`、`M2.md`。按白皮书逐阶段推进。
 
 ## 开发环境
 
@@ -35,6 +35,7 @@ pnpm infra:verify
 pnpm migrate
 pnpm test:integration
 pnpm test:api
+pnpm test:core
 pnpm build:desktop:native
 ```
 
