@@ -206,6 +206,55 @@ try {
       `INSERT INTO tasks(workspace_id,title,goal,type,created_by) VALUES ('${alpha}','Other','Other goal','WORK','${alice}') RETURNING id;`,
     ),
   );
+  const stateTask = uuid(
+    query(
+      `INSERT INTO tasks(workspace_id,title,goal,type,created_by) VALUES ('${alpha}','State Task','Check transitions','WORK','${alice}') RETURNING id;`,
+    ),
+  );
+  expectFailure(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = 'COMPLETED', version = 2 WHERE id = '${stateTask}'; COMMIT;`,
+  );
+  expectFailure(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = 'QUEUED', version = 2 WHERE id = '${stateTask}'; COMMIT;`,
+    true,
+  );
+  for (const status of [
+    'QUEUED',
+    'UNDERSTANDING',
+    'BLOCKED',
+    'UNDERSTANDING',
+    'PLANNING',
+    'RUNNING',
+    'PAUSED',
+    'RUNNING',
+    'WAITING_APPROVAL',
+    'RUNNING',
+    'VERIFYING',
+    'COMPLETED',
+  ]) {
+    query(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = '${status}', version = version + 1 WHERE id = '${stateTask}'; COMMIT;`,
+    );
+    if (status === 'BLOCKED' || status === 'PAUSED') {
+      const expected = status === 'BLOCKED' ? 'UNDERSTANDING' : 'RUNNING';
+      assert(
+        query(`SELECT resume_status FROM tasks WHERE id = '${stateTask}'`) === expected,
+        'Interrupted Task lost its resume stage',
+      );
+      expectFailure(
+        `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = 'VERIFYING', version = version + 1 WHERE id = '${stateTask}'; COMMIT;`,
+      );
+    }
+  }
+  assert(
+    query(
+      `SELECT status || ':' || coalesce(resume_status, 'none') FROM tasks WHERE id = '${stateTask}'`,
+    ) === 'COMPLETED:none',
+    'Completed Task retained interrupted state',
+  );
+  expectFailure(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = 'RUNNING', version = version + 1 WHERE id = '${stateTask}'; COMMIT;`,
+  );
   const run = uuid(
     query(
       `INSERT INTO runs(workspace_id,task_id,attempt,status,created_by) VALUES ('${alpha}','${task}',1,'PENDING','${alice}') RETURNING id;`,
