@@ -61,6 +61,30 @@ describe('AYRA client authorization boundary', () => {
     );
   });
 
+  it('scopes approval inbox requests to the configured API and workspace', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ items: [], nextAfter: null }), { status: 200 }),
+      );
+    const client = createAyraClient({
+      baseUrl: 'https://api.ayra.example',
+      getAccessToken: () => 'session-token',
+      fetch: fetcher,
+    });
+    await client.listPendingApprovals('workspace-id', { limit: 20, after: 'approval-id' });
+    const [url, options] = fetcher.mock.calls[0] ?? [];
+    expect(String(url)).toBe(
+      'https://api.ayra.example/v1/approvals?workspaceId=workspace-id&limit=20&after=approval-id',
+    );
+    expect(options).toMatchObject({
+      method: 'GET',
+      headers: { Authorization: 'Bearer session-token' },
+      cache: 'no-store',
+      redirect: 'error',
+    });
+  });
+
   it('rejects credential-bearing and insecure remote API origins', () => {
     for (const baseUrl of [
       'http://api.ayra.example',

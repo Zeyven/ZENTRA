@@ -33,6 +33,21 @@ export type TaskEvent = {
   createdAt: string;
 };
 
+export type ApprovalRequest = {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  taskId: string;
+  runId: string;
+  action: string;
+  resourceRef: string;
+  argumentsHash: string;
+  stateVersion: number;
+  expiresAt: string;
+  status: 'PENDING' | 'APPROVED' | 'CONSUMED' | 'REJECTED' | 'EXPIRED' | 'REVOKED';
+  version: number;
+};
+
 export class AyraApiError extends Error {
   constructor(
     readonly status: number,
@@ -153,5 +168,21 @@ export function createAyraClient(options: AyraClientOptions) {
         `/v1/artifacts/${encodeURIComponent(artifactId)}/access`,
         { ...(signal ? { signal } : {}) },
       ),
+    listPendingApprovals: (
+      workspaceId: string,
+      options: { limit?: number; after?: string; signal?: AbortSignal } = {},
+    ) => {
+      const query = new URLSearchParams({ workspaceId });
+      if (options.limit !== undefined) query.set('limit', String(options.limit));
+      if (options.after) query.set('after', options.after);
+      return request<{ items: ApprovalRequest[]; nextAfter: string | null }>(
+        `/v1/approvals?${query}`,
+        { ...(options.signal ? { signal: options.signal } : {}) },
+      );
+    },
+    getApprovalRequest: (approvalId: string, signal?: AbortSignal) =>
+      request<ApprovalRequest>(`/v1/approvals/${encodeURIComponent(approvalId)}`, {
+        ...(signal ? { signal } : {}),
+      }),
   };
 }
