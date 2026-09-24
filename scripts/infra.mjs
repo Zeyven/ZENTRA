@@ -30,6 +30,19 @@ function run(args, capture = false) {
   }
   return result.stdout?.trim();
 }
+function verifyObjectStore() {
+  run(
+    [
+      'exec',
+      '-T',
+      'object-store',
+      'sh',
+      '-ec',
+      'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc mb --ignore-existing "local/$OBJECT_STORE_BUCKET" >/dev/null && key=".health/$(cat /proc/sys/kernel/random/uuid)" && printf ayra-health | mc pipe "local/$OBJECT_STORE_BUCKET/$key" >/dev/null && test "$(mc cat "local/$OBJECT_STORE_BUCKET/$key")" = ayra-health && mc rm "local/$OBJECT_STORE_BUCKET/$key" >/dev/null',
+    ],
+    true,
+  );
+}
 if (action === 'up') {
   run([
     'up',
@@ -42,7 +55,7 @@ if (action === 'up') {
     'temporal',
     'object-store',
   ]);
-  run(['run', '--rm', 'object-store-init'], true);
+  verifyObjectStore();
 }
 if (action === 'down') run(['down']); // Deliberately preserves data volumes.
 if (action === 'verify') {
@@ -123,7 +136,7 @@ if (action === 'verify') {
     ],
     true,
   );
-  run(['run', '--rm', 'object-store-init'], true);
+  verifyObjectStore();
   console.info(
     'PASS: PostgreSQL 18, application role, Redis, Temporal namespace, S3 put/get/delete.',
   );

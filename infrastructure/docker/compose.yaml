@@ -46,11 +46,14 @@ services:
       timeout: 5s
       retries: 30
   object-store:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    # Immutable mirror of the original MinIO release image; Quay and Docker Hub
+    # no longer permit anonymous pulls of this tag in fresh CI runners.
+    image: ghcr.io/l33tlamer/minio-backup@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     command: ['server', '/data', '--console-address', ':9001']
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Run pnpm env:init}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Run pnpm env:init}
+      OBJECT_STORE_BUCKET: ${OBJECT_STORE_BUCKET:?Run pnpm env:init}
     ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
     volumes: ['object-data:/data']
     healthcheck:
@@ -58,24 +61,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
-  object-store-init:
-    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
-    depends_on:
-      object-store:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Run pnpm env:init}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Run pnpm env:init}
-      OBJECT_STORE_BUCKET: ${OBJECT_STORE_BUCKET:?Run pnpm env:init}
-    entrypoint: ['/bin/sh', '-ec']
-    command:
-      - |
-        mc alias set local http://object-store:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null
-        mc mb --ignore-existing "local/$$OBJECT_STORE_BUCKET" >/dev/null
-        key=".health/$$(cat /proc/sys/kernel/random/uuid)"
-        printf ayra-health | mc pipe "local/$$OBJECT_STORE_BUCKET/$$key" >/dev/null
-        test "$$(mc cat "local/$$OBJECT_STORE_BUCKET/$$key")" = ayra-health
-        mc rm "local/$$OBJECT_STORE_BUCKET/$$key" >/dev/null
 volumes:
   postgres-data:
   temporal-data:
