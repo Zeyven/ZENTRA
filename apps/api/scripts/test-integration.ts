@@ -8,6 +8,7 @@ import { createApp } from '../src/app';
 import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artifacts';
 import { createRunAttempt, readRunAttempt } from '../src/runs';
 import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
+import { dispatchTaskStartBatch, workflowIdForRun } from '../../worker/src/outbox-dispatcher';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -1362,6 +1363,72 @@ try {
       `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${startTaskId}' AND event_type = 'task.status_changed.v1';`,
     ) === '1',
     'Task start did not write exactly one transactional Outbox event',
+  );
+  const claimedStarts = await pool.query<{
+    event_id: string;
+    task_id: string;
+    run_id: string;
+    claim_token: string;
+    attempts: number;
+  }>('SELECT * FROM ayra.claim_task_start_events($1)', [50]);
+  const firstClaim = claimedStarts.rows.find((event) => event.task_id === startTaskId);
+  check(
+    firstClaim?.run_id === startedRunId && firstClaim.attempts === 1,
+    'Outbox Worker could not claim the committed Task start',
+  );
+  if (!firstClaim) throw new Error('Missing Task start Outbox claim');
+  migrationSql(
+    `UPDATE outbox_events SET lease_until = now() - interval '1 second' WHERE id = '${expectUuid(firstClaim.event_id)}';`,
+  );
+  const reclaimedStarts = await pool.query<typeof firstClaim>(
+    'SELECT * FROM ayra.claim_task_start_events($1)',
+    [50],
+  );
+  const secondClaim = reclaimedStarts.rows.find((event) => event.event_id === firstClaim.event_id);
+  check(
+    secondClaim?.attempts === 2 && secondClaim.claim_token !== firstClaim.claim_token,
+    'Expired Outbox lease could not be reclaimed after Worker interruption',
+  );
+  if (!secondClaim) throw new Error('Missing reclaimed Task start event');
+  check(
+    (
+      await pool.query<{ acknowledged: boolean }>(
+        'SELECT ayra.ack_task_start_event($1, $2) AS acknowledged',
+        [firstClaim.event_id, firstClaim.claim_token],
+      )
+    ).rows[0]?.acknowledged === false,
+    'Stale Worker lease acknowledged a reclaimed event',
+  );
+  check(
+    (
+      await pool.query<{ acknowledged: boolean }>(
+        'SELECT ayra.ack_task_start_event($1, $2) AS acknowledged',
+        [secondClaim.event_id, secondClaim.claim_token],
+      )
+    ).rows[0]?.acknowledged === true,
+    'Current Worker lease could not acknowledge dispatch',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE id = '${expectUuid(firstClaim.event_id)}' AND published_at IS NOT NULL;`,
+    ) === '1',
+    'Acknowledged Task start remained pending',
+  );
+  migrationSql(
+    `UPDATE outbox_events SET published_at = NULL WHERE id = '${expectUuid(firstClaim.event_id)}';`,
+  );
+  const startedWorkflowIds: string[] = [];
+  const dispatched = await dispatchTaskStartBatch(pool, async (runId, workflowId) => {
+    check(runId === startedRunId, 'Outbox dispatcher changed AYRA Run identity');
+    startedWorkflowIds.push(workflowId);
+  });
+  check(
+    dispatched.started === 1 &&
+      startedWorkflowIds[0] === workflowIdForRun(startedRunId) &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE id = '${expectUuid(firstClaim.event_id)}' AND published_at IS NOT NULL;`,
+      ) === '1',
+    'Outbox dispatcher did not deliver and acknowledge the committed Task start',
   );
   check(
     (

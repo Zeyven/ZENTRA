@@ -14,6 +14,10 @@
     "@ayra/config": "workspace:*",
     "@temporalio/client": "1.24.0",
     "@temporalio/worker": "1.24.0",
-    "@temporalio/workflow": "1.24.0"
+    "@temporalio/workflow": "1.24.0",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
   }
 }
