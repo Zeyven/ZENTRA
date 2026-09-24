@@ -363,6 +363,7 @@ try {
   };
   const approvalClient = await pool.connect();
   let approvalId: string;
+  let secondApprovalId: string;
   try {
     await approvalClient.query('BEGIN');
     await approvalClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
@@ -392,6 +393,14 @@ try {
         )
       )?.id === approvalId,
       'Approval target could not read request',
+    );
+    secondApprovalId = expectUuid(
+      (
+        await createApprovalRequest(approvalClient, expectUuid(users[0]) as UserId, {
+          ...approvalInput,
+          idempotencyKey: randomUUID(),
+        })
+      ).id,
     );
     await approvalClient.query('COMMIT');
   } catch (error) {
@@ -442,6 +451,44 @@ try {
     (await call('integration-alice', 'GET', `/v1/approvals/${approvalId}`)).json().argumentsHash ===
       approvalInput.argumentsHash,
     'Approval target could not review the bound action hash',
+  );
+  const inboxFirst = await call(
+    'integration-alice',
+    'GET',
+    `/v1/approvals?workspaceId=${alpha}&limit=1`,
+  );
+  check(inboxFirst.statusCode === 200, 'Approval inbox was not readable');
+  const firstPage = inboxFirst.json();
+  check(firstPage.items.length === 1 && firstPage.nextAfter, 'Approval inbox did not paginate');
+  const inboxSecond = await call(
+    'integration-alice',
+    'GET',
+    `/v1/approvals?workspaceId=${alpha}&limit=1&after=${firstPage.nextAfter}`,
+  );
+  const secondPage = inboxSecond.json();
+  check(
+    inboxSecond.statusCode === 200 &&
+      secondPage.items.length === 1 &&
+      secondPage.nextAfter === null &&
+      new Set([firstPage.items[0].id, secondPage.items[0].id]).size === 2 &&
+      [approvalId, secondApprovalId].every((id) =>
+        [firstPage.items[0].id, secondPage.items[0].id].includes(id),
+      ),
+    `Approval inbox keyset pages duplicated or skipped a request: ${JSON.stringify({ firstPage, secondPage, approvalId, secondApprovalId })}`,
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'GET',
+        `/v1/approvals?workspaceId=${alpha}&after=${randomUUID()}`,
+      )
+    ).statusCode === 400,
+    'Approval inbox accepted a foreign cursor',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/approvals?workspaceId=${alpha}`)).statusCode === 404,
+    'Nonmember read Approval inbox',
   );
   check(
     (
@@ -715,6 +762,11 @@ try {
   check(
     (await call('integration-bob', 'GET', `/v1/artifacts/${artifactId}`)).statusCode === 200,
     'Shared Artifact metadata was not readable',
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/approvals?workspaceId=${alpha}`)).json().items
+      .length === 0,
+    "Member read another user's Approval inbox",
   );
   const otherMemberApprovalClient = await pool.connect();
   try {

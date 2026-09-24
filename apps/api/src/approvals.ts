@@ -21,6 +21,7 @@ type ApprovalRow = {
   expires_at: Date;
   status: string;
   version: string;
+  created_at?: Date;
 };
 const fields =
   'id, workspace_id, user_id, task_id, run_id, action, resource_ref, arguments_hash, state_version, expires_at, status, version';
@@ -166,6 +167,47 @@ export async function readApprovalRequest(
   return decision.allowed ? dto(approval) : null;
 }
 
+/** Only the addressed user sees their live pending requests; RLS is a second boundary. */
+export async function listPendingApprovals(
+  client: PoolClient,
+  actor: UserId,
+  workspaceId: WorkspaceId,
+  limit: number,
+  after?: ApprovalId,
+) {
+  const role = await roleInWorkspace(client, actor, workspaceId);
+  const decision = workspacePolicy.authorize({
+    actor,
+    action: 'approval:read',
+    workspaceId,
+    membership: role ? { workspaceId, role, status: 'ACTIVE' } : null,
+  });
+  if (!decision.allowed) return null;
+  if (after) {
+    const previous = await client.query<{ id: ApprovalId }>(
+      'SELECT id FROM approvals WHERE id = $1 AND workspace_id = $2 AND user_id = $3',
+      [after, workspaceId, actor],
+    );
+    if (!previous.rows[0]) return { error: 'invalid_cursor' as const };
+  }
+  const result = await client.query<ApprovalRow>(
+    `SELECT ${fields}, created_at FROM approvals
+     WHERE workspace_id = $1 AND user_id = $2 AND status = 'PENDING'
+       AND expires_at > now()
+       AND ($3::uuid IS NULL OR (created_at, id) < (
+         SELECT created_at, id FROM approvals
+         WHERE id = $3 AND workspace_id = $1 AND user_id = $2
+       ))
+     ORDER BY created_at DESC, id DESC LIMIT $4`,
+    [workspaceId, actor, after ?? null, limit + 1],
+  );
+  const page = result.rows.slice(0, limit);
+  return {
+    items: page.map(dto),
+    nextAfter: result.rows.length > limit ? (page.at(-1)?.id ?? null) : null,
+  };
+}
+
 const uuidParam = {
   type: 'object',
   required: ['id'],
@@ -173,6 +215,41 @@ const uuidParam = {
 } as const;
 
 export function registerApprovalRoutes(app: FastifyInstance, services: Services) {
+  app.get<{
+    Querystring: { workspaceId: string; limit?: number; after?: string };
+  }>(
+    '/v1/approvals',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          required: ['workspaceId'],
+          additionalProperties: false,
+          properties: {
+            workspaceId: { type: 'string', format: 'uuid' },
+            limit: { type: 'integer', minimum: 1, maximum: 100 },
+            after: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const result = await runAuthorized(services, request, reply, (client, actor) =>
+        listPendingApprovals(
+          client,
+          actor,
+          request.query.workspaceId as WorkspaceId,
+          request.query.limit ?? 50,
+          request.query.after as ApprovalId | undefined,
+        ),
+      );
+      if (reply.sent) return reply;
+      if (!result) return reply.code(404).send({ error: 'workspace_not_found' });
+      if ('error' in result) return reply.code(400).send(result);
+      return result;
+    },
+  );
+
   app.get<{ Params: { id: string } }>(
     '/v1/approvals/:id',
     { schema: { params: uuidParam } },
