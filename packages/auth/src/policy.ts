@@ -28,6 +28,7 @@ export type PolicyAction =
   | 'run:update'
   | 'approval:create'
   | 'approval:read'
+  | 'approval:decide'
   | 'task:create'
   | 'task:start'
   | 'task:cancel'

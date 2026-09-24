@@ -1,8 +1,8 @@
 # AYRA
 
-按照 **AYRA BASELINE v1.0 — FROZEN** 实施的通用智能体工作空间。M0 工程基础、M1 身份/Workspace/Policy 与 M2 Core Domain 的工程 DoD 已通过；下一阶段是 M3 Durable Task。完整业务能力和生产就绪状态尚未验证。
+按照 **AYRA BASELINE v1.0 — FROZEN** 实施的通用智能体工作空间。M0 工程基础、M1 身份/Workspace/Policy 与 M2 Core Domain 的工程 DoD 已通过；M3 Durable Task、M4 Agent Runtime/Model Gateway 与 M5 Approval 正在实施。完整业务能力和生产就绪状态尚未验证。
 
-原始白皮书未修改。完整白皮书及其文本提取作为本地实施输入，不随公开源码发布；原文件 SHA-256 位于 `docs/baseline/`。实施记录见 `docs/adr/0001-m0-baseline.md` 和 `docs/implementation/M0.md`、`M1.md`、`M2.md`。按白皮书逐阶段推进。
+原始白皮书未修改。完整白皮书及其文本提取作为本地实施输入，不随公开源码发布；原文件 SHA-256 位于 `docs/baseline/`。实施记录见 `docs/adr/0001-m0-baseline.md` 和 `docs/implementation/`。按白皮书逐阶段推进。
 
 ## 开发环境
 
@@ -23,7 +23,7 @@ pnpm dev
 | OpenAPI              | http://127.0.0.1:4000/openapi.json       |
 | Temporal dev UI      | http://127.0.0.1:8233                    |
 | Object store console | http://127.0.0.1:9001                    |
-| Worker               | 仅进程骨架，不接受或执行任务             |
+| Worker               | 正式入口仍是进程骨架，不接受或执行任务   |
 
 仅查看官网可运行 `pnpm dev:web`；桌面 UI 独立预览使用 `pnpm --filter @ayra/desktop dev`（http://127.0.0.1:1420），不代表完整本地环境验收。移动端：`pnpm --filter @ayra/mobile dev`。桌面原生：`pnpm --filter @ayra/desktop dev:native`。
 
@@ -48,7 +48,7 @@ GitHub Actions 配置包括工程检查、真实 Compose 服务验证及 macOS/W
 - `apps/`：web、desktop、mobile、api、worker。
 - `packages/domain`：AYRA 自有类型，不依赖 Provider SDK。
 - `packages/config`：服务端配置验证及显式 public allowlist。
-- 其余共享包按白皮书 §3.3 保留边界，空包不代表对应能力已实现。
+- AgentRuntime/ModelProvider 自有接口和模型策略骨架已落地；真实模型适配器、Tool Gateway 与 Vault 尚未接入。其余共享包按白皮书 §3.3 保留边界，空包不代表对应能力已实现。
 - 应用数据库连接固定使用 `application_role`；M1 已加入身份映射、租户表、Policy 与 RLS，仍未完成供应商和客户端集成。
 - 供应商密钥不进入客户端、源码或日志。`.env.local` 保持 git 忽略；初始化不覆盖已有凭据。
 - Compose 只供本地开发、端口仅监听 loopback。生产部署、密钥管理、Updater 签名与高风险操作均未开放。

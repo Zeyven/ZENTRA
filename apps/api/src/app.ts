@@ -8,6 +8,7 @@ import { registerConversationRoutes } from './conversations';
 import { registerResourceRoutes } from './resources';
 import { registerArtifactRoutes } from './artifacts';
 import { registerTaskEventStream } from './task-event-stream';
+import { registerApprovalRoutes } from './approvals';
 export async function createApp(services: Services = {}) {
   const app = Fastify({
     logger: {
@@ -50,6 +51,7 @@ export async function createApp(services: Services = {}) {
   registerConversationRoutes(app, services);
   registerResourceRoutes(app, services);
   registerArtifactRoutes(app, services);
+  registerApprovalRoutes(app, services);
   app.get('/openapi.json', async () => app.swagger());
   return app;
 }

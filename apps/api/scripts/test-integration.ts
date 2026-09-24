@@ -439,13 +439,38 @@ try {
     'Denied Approval left idempotency reservation',
   );
   check(
+    (await call('integration-alice', 'GET', `/v1/approvals/${approvalId}`)).json().argumentsHash ===
+      approvalInput.argumentsHash,
+    'Approval target could not review the bound action hash',
+  );
+  check(
     (
       await call('integration-alice', 'POST', `/v1/approvals/${approvalId}/decision`, {
-        decision: 'APPROVE',
+        version: 1,
+        decision: 'APPROVED',
       })
-    ).statusCode === 404,
-    'Approval decision route was exposed before tool authorization exists',
+    ).statusCode === 503,
+    'Production-disabled Approval decision unexpectedly succeeded',
   );
+  const approvalDecisionApp = await createApp({
+    identity,
+    pool,
+    approvalDecisionsEnabled: true,
+  });
+  try {
+    const staleDecision = await approvalDecisionApp.inject({
+      method: 'POST',
+      url: `/v1/approvals/${approvalId}/decision`,
+      headers: { authorization: `Bearer ${tokens['integration-alice']}` },
+      payload: { version: 1, decision: 'APPROVED' },
+    });
+    check(
+      staleDecision.statusCode === 409 && staleDecision.json().reason === 'STALE',
+      'Approval decision accepted a Run that is not active on its Task',
+    );
+  } finally {
+    await approvalDecisionApp.close();
+  }
   const rolledBackApproval = expectUuid(
     migrationSql(
       `BEGIN; SET LOCAL ayra.actor_user_id = '${expectUuid(users[0])}';

@@ -9,6 +9,7 @@ export interface Services {
   identity?: IdentityProvider;
   pool?: Pool;
   taskExecutionEnabled?: boolean;
+  approvalDecisionsEnabled?: boolean;
   artifactAccess?: { client: S3Client; bucket: string };
 }
 

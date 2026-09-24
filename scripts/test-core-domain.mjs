@@ -300,8 +300,78 @@ try {
   expectFailure(
     `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${alice}','${task}','${otherRun}','write','resource','${'a'.repeat(64)}',1,now()+interval '1 hour'); COMMIT;`,
   );
+  for (const status of ['QUEUED', 'UNDERSTANDING', 'PLANNING', 'RUNNING', 'WAITING_APPROVAL'])
+    query(
+      `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = '${status}', version = version + 1 WHERE id = '${task}'; COMMIT;`,
+    );
+  const approvalStateVersion = Number(query(`SELECT version FROM tasks WHERE id = '${task}'`));
+  const requestDecision = (suffix) =>
+    uuid(
+      asActor(
+        alice,
+        `INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${alice}','${task}','${run}','write','resource-${suffix}','${'b'.repeat(64)}',${approvalStateVersion},now()+interval '1 hour') RETURNING id`,
+      ),
+    );
+  const approved = requestDecision('approve');
+  expectFailure(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; SELECT ayra.decide_approval('${approved}',NULL,'APPROVED'); COMMIT;`,
+    true,
+  );
+  expectFailure(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; SELECT ayra.decide_approval('${approved}',1,NULL); COMMIT;`,
+    true,
+  );
+  assert(
+    asActor(bob, `SELECT ayra.decide_approval('${approved}',1,'APPROVED')`) === 'NOT_FOUND',
+    'Suspended Workspace member decided an Approval',
+  );
+  query(
+    `UPDATE workspace_memberships SET status = 'ACTIVE' WHERE workspace_id = '${alpha}' AND user_id = '${bob}'`,
+  );
+  assert(
+    asActor(bob, `SELECT ayra.decide_approval('${approved}',1,'APPROVED')`) === 'NOT_FOUND',
+    'Active non-target Workspace member decided an Approval',
+  );
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${approved}',2,'APPROVED')`) === 'CONFLICT',
+    'Stale Approval version was accepted',
+  );
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${approved}',1,'APPROVED')`) === 'APPROVED',
+    'Target user could not approve current Task state',
+  );
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${approved}',1,'APPROVED')`) === 'CONFLICT' &&
+      query(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${approved}' AND event_type = 'approval.approved.v1'`,
+      ) === '1',
+    'Approval replay duplicated the decision event',
+  );
+  const rejected = requestDecision('reject');
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${rejected}',1,'REJECTED')`) === 'REJECTED',
+    'Target user could not reject an Approval',
+  );
+  const expired = requestDecision('expire');
+  query(
+    `UPDATE approvals SET expires_at = now() - interval '1 second', version = version + 1 WHERE id = '${expired}'`,
+  );
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${expired}',2,'APPROVED')`) === 'EXPIRED' &&
+      query(`SELECT status FROM approvals WHERE id = '${expired}'`) === 'EXPIRED',
+    'Expired Approval was accepted',
+  );
+  const stale = requestDecision('stale');
+  query(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE tasks SET status = 'RUNNING', version = version + 1 WHERE id = '${task}'; COMMIT;`,
+  );
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${stale}',1,'APPROVED')`) === 'STALE' &&
+      query(`SELECT status FROM approvals WHERE id = '${stale}'`) === 'REVOKED',
+    'Changed Task state did not invalidate Approval',
+  );
   console.info(
-    'PASS: M2 tenant references, Task/Run/Artifact invariants, versions, audit and atomic outbox.',
+    'PASS: M2 invariants and M5 Approval target, state, expiry, replay, and event guards.',
   );
 } finally {
   if (workspaces.length) {

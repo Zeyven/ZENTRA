@@ -138,6 +138,14 @@ describe('workspace project policy', () => {
       workspacePolicy.authorize({
         actor,
         workspaceId,
+        action: 'approval:decide',
+        membership: member,
+      }),
+    ).toEqual({ allowed: true });
+    expect(
+      workspacePolicy.authorize({
+        actor,
+        workspaceId,
         action: 'approval:create',
         membership: member,
       }),
