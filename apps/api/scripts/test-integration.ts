@@ -1359,6 +1359,63 @@ try {
       `Conversation ${eventType} audit missing or duplicated`,
     );
   }
+  const linkedProjectResponse = await call(
+    'integration-alice',
+    'POST',
+    '/v1/projects',
+    { workspaceId: alpha, name: 'Message lifecycle project' },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(linkedProjectResponse.statusCode === 201, 'Linked Project creation failed');
+  const linkedProjectId = expectUuid(linkedProjectResponse.json().id);
+  const linkedConversationResponse = await call(
+    'integration-alice',
+    'POST',
+    '/v1/conversations',
+    { workspaceId: alpha, projectId: linkedProjectId, title: 'Project-bound discussion' },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(linkedConversationResponse.statusCode === 201, 'Linked Conversation creation failed');
+  const linkedConversationId = expectUuid(linkedConversationResponse.json().id);
+  const linkedMessageUrl = `/v1/conversations/${linkedConversationId}/messages`;
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        linkedMessageUrl,
+        { body: 'Before archive' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 201,
+    'Active linked Project blocked Conversation Message',
+  );
+  check(
+    (
+      await call('integration-alice', 'POST', `/v1/projects/${linkedProjectId}/archive`, {
+        version: 1,
+      })
+    ).statusCode === 200,
+    'Linked Project archive failed',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        linkedMessageUrl,
+        { body: 'After archive' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 404,
+    'Archived linked Project accepted Conversation Message',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM conversation_messages WHERE conversation_id = '${linkedConversationId}';`,
+    ) === '1',
+    'Archived linked Project changed Conversation Message history',
+  );
   const resourceInput = {
     workspaceId: alpha,
     projectId,

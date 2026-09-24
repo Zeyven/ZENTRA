@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { claimIdempotency, finishIdempotency, readIdempotencyKey } from './idempotency';
 import { roleInWorkspace } from './membership';
+import { requireActiveProject } from './project-reference';
 import type { Services } from './request-context';
 import { runAuthorized, TransactionalConflictError } from './request-context';
 
@@ -74,8 +75,9 @@ export function registerConversationMessageRoutes(app: FastifyInstance, services
         const result = await client.query<{
           id: string;
           workspace_id: WorkspaceId;
+          project_id: string | null;
           archived_at: Date | null;
-        }>('SELECT id, workspace_id, archived_at FROM conversations WHERE id = $1', [
+        }>('SELECT id, workspace_id, project_id, archived_at FROM conversations WHERE id = $1', [
           request.params.id,
         ]);
         const conversation = result.rows[0];
@@ -112,6 +114,7 @@ export function registerConversationMessageRoutes(app: FastifyInstance, services
         }
         if (conversation.archived_at !== null)
           throw new TransactionalConflictError('Archived Conversation cannot receive messages');
+        await requireActiveProject(client, conversation.workspace_id, conversation.project_id);
         const inserted = await client.query<{
           result_code: string;
           message_id: string | null;
