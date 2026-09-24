@@ -9,6 +9,7 @@ import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artif
 import { createRunAttempt, readRunAttempt } from '../src/runs';
 import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
 import { dispatchTaskStartBatch, workflowIdForRun } from '../../worker/src/outbox-dispatcher';
+import { createTaskActivities } from '../../worker/src/task-activities';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -1489,6 +1490,59 @@ try {
         `SELECT count(*) FROM outbox_events WHERE id = '${expectUuid(firstClaim.event_id)}' AND published_at IS NOT NULL;`,
       ) === '1',
     'Outbox dispatcher did not deliver and acknowledge the committed Task start',
+  );
+  let canonicalized = false;
+  const activities = createTaskActivities(
+    pool,
+    {
+      async understand(_runId, goal) {
+        return goal;
+      },
+      async plan(_runId, understanding) {
+        return understanding;
+      },
+      async execute(_runId, plan) {
+        return plan;
+      },
+      async verify() {
+        return true;
+      },
+    },
+    async () => {
+      canonicalized = true;
+    },
+  );
+  const executionSnapshot = await activities.loadTask(startedRunId);
+  check(
+    executionSnapshot.taskId === startTaskId &&
+      executionSnapshot.goal === 'Verify the canonical start transaction',
+    'Worker could not load the canonical queued Task by Run ID',
+  );
+  let rejectedSkip = false;
+  try {
+    await pool.query('SELECT ayra.worker_task_transition($1, $2)', [startedRunId, 'PLANNING']);
+  } catch {
+    rejectedSkip = true;
+  }
+  check(rejectedSkip, 'Worker skipped the PostgreSQL Task transition guard');
+  for (const stage of ['UNDERSTANDING', 'PLANNING', 'RUNNING', 'VERIFYING'] as const)
+    await activities.enterStage(startedRunId, stage);
+  await activities.completeRun(startedRunId, 'Verified test output');
+  check(canonicalized, 'Worker completed Run without canonicalizing output');
+  check(
+    (
+      await pool.query<{ result: string }>('SELECT ayra.worker_task_transition($1, $2) AS result', [
+        startedRunId,
+        'COMPLETED',
+      ])
+    ).rows[0]?.result === 'UNCHANGED',
+    'Repeated Worker completion rewrote canonical Task state',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${startTaskId}' AND event_type = 'task.status_changed.v1';`,
+    ) === '6',
+    'Worker stage changes lost or duplicated transactional Task events',
   );
   check(
     (
