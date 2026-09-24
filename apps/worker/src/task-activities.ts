@@ -39,6 +39,22 @@ export function createTaskActivities(
     understand: agent.understand,
     plan: agent.plan,
     execute: agent.execute,
+    async approvalState(runId, approvalId, stateVersion) {
+      const result = await pool.query<{ state: string }>(
+        'SELECT ayra.worker_approval_state($1, $2, $3) AS state',
+        [runId, approvalId, stateVersion],
+      );
+      const state = result.rows[0]?.state;
+      if (
+        state !== 'PENDING' &&
+        state !== 'APPROVED' &&
+        state !== 'REJECTED' &&
+        state !== 'EXPIRED' &&
+        state !== 'STALE'
+      )
+        throw new Error('Unknown canonical Approval state');
+      return state;
+    },
     verify: agent.verify,
     async completeRun(runId, output) {
       await canonicalizeOutput(runId, output);

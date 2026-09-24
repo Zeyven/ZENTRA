@@ -5,6 +5,7 @@ import type { TaskActivities } from './task-activity-contract';
 import { dispatchTaskStartBatch } from './outbox-dispatcher';
 import { dispatchTaskCancelBatch, signalTaskCancellation } from './cancel-dispatcher';
 import { dispatchTaskControlBatch, signalTaskControl } from './control-dispatcher';
+import { dispatchApprovalDecisionBatch, signalApprovalDecision } from './approval-dispatcher';
 
 type TaskExecutionOptions = {
   pool: Pool;
@@ -64,6 +65,9 @@ export async function runTaskExecutionProcess(options: TaskExecutionOptions): Pr
       await dispatchTaskCancelBatch(options.pool, (runId) => signalTaskCancellation(client, runId));
       await dispatchTaskControlBatch(options.pool, (runId, action) =>
         signalTaskControl(client, runId, action),
+      );
+      await dispatchApprovalDecisionBatch(options.pool, (runId, approvalId) =>
+        signalApprovalDecision(client, runId, approvalId),
       );
       if (workerFailure) throw workerFailure;
       await new Promise<void>((resolve) => {

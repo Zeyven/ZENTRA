@@ -17,6 +17,9 @@ const activities: TaskActivities = {
   async execute(_runId, plan) {
     return `output: ${plan}`;
   },
+  async approvalState() {
+    throw new Error('The test Agent did not request Approval');
+  },
   async verify(_runId, output) {
     return output.startsWith('output: plan: understood:');
   },

@@ -1843,6 +1843,122 @@ try {
     ) === '6',
     'Worker stage changes lost or duplicated transactional Task events',
   );
+  const approvalWorkflowDraft = await call(
+    'integration-alice',
+    'POST',
+    '/v1/tasks',
+    {
+      workspaceId: alpha,
+      title: 'Approval recovery',
+      goal: 'Wait for one canonical approval after Worker restart',
+      type: 'WORK',
+    },
+    { 'idempotency-key': randomUUID() },
+  );
+  const approvalWorkflowTaskId = expectUuid(approvalWorkflowDraft.json().id);
+  const approvalWorkflowStart = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${approvalWorkflowTaskId}/start`,
+    { version: 1 },
+    { 'idempotency-key': randomUUID() },
+  );
+  const approvalWorkflowRunId = expectUuid(approvalWorkflowStart.json().runId);
+  const approvalWorkflowTest = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      fileURLToPath(new URL('../../worker/scripts/test-db-approval-workflow.ts', import.meta.url)),
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        AYRA_TEST_APPROVAL_RUN_ID: approvalWorkflowRunId,
+        AYRA_TEST_APPROVAL_TASK_ID: approvalWorkflowTaskId,
+        AYRA_TEST_APPROVAL_ACTOR_ID: expectUuid(users[0]),
+        AYRA_TEST_APPROVAL_WORKSPACE_ID: alpha,
+      },
+      encoding: 'utf8',
+      timeout: 90000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  check(
+    approvalWorkflowTest.status === 0 &&
+      approvalWorkflowTest.stdout.includes('PASS: Approval Workflow survived'),
+    `DB + Temporal Approval recovery failed (${approvalWorkflowTest.status}): ${approvalWorkflowTest.stdout.slice(-1000)} ${approvalWorkflowTest.stderr.slice(-1000)}`,
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/tasks/${approvalWorkflowTaskId}`)).json()
+      .status === 'COMPLETED' &&
+      migrationSql(
+        `SELECT count(*) FROM approvals WHERE run_id = '${approvalWorkflowRunId}' AND request_key IS NOT NULL AND status = 'CONSUMED';`,
+      ) === '1' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE event_type = 'approval.approved.v1' AND published_at IS NOT NULL AND aggregate_id IN (SELECT id FROM approvals WHERE run_id = '${approvalWorkflowRunId}');`,
+      ) === '1',
+    'Approval Workflow did not persist exactly one consumed request',
+  );
+  const rejectedWorkflowDraft = await call(
+    'integration-alice',
+    'POST',
+    '/v1/tasks',
+    {
+      workspaceId: alpha,
+      title: 'Reject approval',
+      goal: 'Stop execution when the target user rejects',
+      type: 'WORK',
+    },
+    { 'idempotency-key': randomUUID() },
+  );
+  const rejectedWorkflowTaskId = expectUuid(rejectedWorkflowDraft.json().id);
+  const rejectedWorkflowStart = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${rejectedWorkflowTaskId}/start`,
+    { version: 1 },
+    { 'idempotency-key': randomUUID() },
+  );
+  const rejectedWorkflowRunId = expectUuid(rejectedWorkflowStart.json().runId);
+  const rejectedWorkflowTest = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      fileURLToPath(new URL('../../worker/scripts/test-db-approval-workflow.ts', import.meta.url)),
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        AYRA_TEST_APPROVAL_RUN_ID: rejectedWorkflowRunId,
+        AYRA_TEST_APPROVAL_TASK_ID: rejectedWorkflowTaskId,
+        AYRA_TEST_APPROVAL_ACTOR_ID: expectUuid(users[0]),
+        AYRA_TEST_APPROVAL_WORKSPACE_ID: alpha,
+        AYRA_TEST_APPROVAL_DECISION: 'REJECTED',
+      },
+      encoding: 'utf8',
+      timeout: 90000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  check(
+    rejectedWorkflowTest.status === 0 &&
+      rejectedWorkflowTest.stdout.includes('PASS: Rejected Approval failed'),
+    `DB + Temporal Approval rejection failed (${rejectedWorkflowTest.status}): ${rejectedWorkflowTest.stdout.slice(-1000)} ${rejectedWorkflowTest.stderr.slice(-1000)}`,
+  );
+  check(
+    (await call('integration-alice', 'GET', `/v1/tasks/${rejectedWorkflowTaskId}`)).json()
+      .status === 'FAILED' &&
+      migrationSql(
+        `SELECT count(*) FROM approvals WHERE run_id = '${rejectedWorkflowRunId}' AND status = 'REJECTED';`,
+      ) === '1' &&
+      migrationSql(`SELECT count(*) FROM artifacts WHERE run_id = '${rejectedWorkflowRunId}';`) ===
+        '0',
+    'Rejected Approval created an output or failed to terminate the Task',
+  );
   const cancelQueuedDraft = await call(
     'integration-alice',
     'POST',

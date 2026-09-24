@@ -415,8 +415,94 @@ try {
       query(`SELECT status FROM approvals WHERE id = '${stale}'`) === 'REVOKED',
     'Changed Task state did not invalidate Approval',
   );
+  const requestKey = randomUUID();
+  const requestExpiry = new Date(Date.now() + 3600000).toISOString();
+  const requestHash = 'd'.repeat(64);
+  const workerRequest = (target, hash = requestHash, key = requestKey) =>
+    asActor(
+      alice,
+      `SELECT result_code, approval_id, task_version FROM ayra.worker_request_approval(
+        '${run}','${target}','write','worker-resource','${hash}',
+        '${requestExpiry}','${key}')`,
+    );
+  assert(
+    workerRequest(bob).startsWith('UNAVAILABLE'),
+    'Worker requested Approval from a suspended member',
+  );
+  const beforeRequestVersion = Number(query(`SELECT version FROM tasks WHERE id = '${task}'`));
+  const requested = workerRequest(alice).split('|');
+  const workerApproval = uuid(requested[1]);
+  const workerStateVersion = Number(requested[2]);
+  assert(
+    requested[0] === 'REQUESTED' &&
+      workerStateVersion === beforeRequestVersion + 1 &&
+      query(`SELECT status FROM tasks WHERE id = '${task}'`) === 'WAITING_APPROVAL' &&
+      query(`SELECT state_version FROM approvals WHERE id = '${workerApproval}'`) ===
+        String(workerStateVersion),
+    'Worker Approval request did not atomically bind the waiting Task version',
+  );
+  assert(
+    workerRequest(alice) === `REPLAY|${workerApproval}|${workerStateVersion}` &&
+      workerRequest(alice, 'e'.repeat(64)).startsWith('CONFLICT') &&
+      query(`SELECT version FROM tasks WHERE id = '${task}'`) === String(workerStateVersion) &&
+      query(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${workerApproval}' AND event_type = 'approval.requested.v1'`,
+      ) === '1',
+    'Worker Approval retry duplicated or rebound a request',
+  );
+  const workerApprovalState = (version = workerStateVersion, approvalId = workerApproval) =>
+    query(`SELECT ayra.worker_approval_state('${run}','${approvalId}',${version})`, true);
+  assert(
+    workerApprovalState() === 'PENDING' &&
+      workerApprovalState(workerStateVersion + 1) === 'STALE' &&
+      workerApprovalState(workerStateVersion, approved) === 'STALE',
+    'Worker Approval reconciliation trusted a mismatched Task or Approval',
+  );
+  assert(
+    asActor(alice, `SELECT ayra.decide_approval('${workerApproval}',1,'APPROVED')`) ===
+      'APPROVED' && workerApprovalState() === 'APPROVED',
+    'Worker-created Approval could not be decided',
+  );
+  const decisionClaims = query(
+    `SELECT event_id || '|' || approval_id || '|' || run_id || '|' || claim_token
+       FROM ayra.claim_approval_decision_events(50)`,
+    true,
+  ).split('\n');
+  const decisionClaim = decisionClaims
+    .map((line) => line.split('|'))
+    .find((parts) => parts[1] === workerApproval);
+  const decisionEventId = uuid(decisionClaim?.[0]);
+  const decisionClaimToken = uuid(decisionClaim?.[3]);
+  assert(
+    query(
+      `SELECT ayra.approval_decision_dispatch_state('${decisionEventId}','${workerApproval}','${run}')`,
+      true,
+    ) === 'READY' &&
+      query(
+        `SELECT ayra.ack_approval_decision_event('${decisionEventId}','${randomUUID()}')`,
+        true,
+      ) === 'f' &&
+      query(
+        `SELECT ayra.ack_approval_decision_event('${decisionEventId}','${decisionClaimToken}')`,
+        true,
+      ) === 't' &&
+      query(
+        `SELECT ayra.ack_approval_decision_event('${decisionEventId}','${decisionClaimToken}')`,
+        true,
+      ) === 'f',
+    'Approval decision Outbox accepted a stale claim or duplicated acknowledgement',
+  );
+  assert(
+    asActor(
+      alice,
+      `SELECT ayra.consume_approval('${workerApproval}','${run}','write','worker-resource','${requestHash}',${workerStateVersion})`,
+    ) === 'CONSUMED' &&
+      workerApprovalState() === 'STALE' &&
+      workerRequest(alice).startsWith('CONFLICT'),
+    'Worker-created Approval could not be consumed once',
+  );
   console.info(
-    'PASS: M2 invariants and M5 Approval decision, consumption, revocation, and event guards.',
+    'PASS: M2 invariants and M5 Approval request, decision, consumption, revocation, and event guards.',
   );
 } finally {
   if (workspaces.length) {
