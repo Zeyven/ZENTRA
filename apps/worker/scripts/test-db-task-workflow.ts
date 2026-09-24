@@ -4,13 +4,15 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { dispatchTaskStartBatch, workflowIdForRun } from '../src/outbox-dispatcher';
+import { workflowIdForRun } from '../src/outbox-dispatcher';
 
 const runId = process.env.AYRA_TEST_RUN_ID;
+const cancelRunId = process.env.AYRA_TEST_CANCEL_RUN_ID;
+const cancelTaskId = process.env.AYRA_TEST_CANCEL_TASK_ID;
 const actorId = process.env.AYRA_TEST_ACTOR_ID;
 const databaseUrl = process.env.DATABASE_URL;
-if (!runId || !actorId || !databaseUrl)
-  throw new Error('M3 integration Run, actor and database are required');
+if (!runId || !cancelRunId || !cancelTaskId || !actorId || !databaseUrl)
+  throw new Error('M3 integration Runs, actor and database are required');
 const bucket = process.env.OBJECT_STORE_BUCKET;
 const endpoint = process.env.OBJECT_STORE_ENDPOINT;
 const accessKeyId = process.env.MINIO_ROOT_USER;
@@ -24,6 +26,7 @@ const s3 = new S3Client({
   credentials: { accessKeyId, secretAccessKey },
 });
 const workflowId = workflowIdForRun(runId);
+const cancelWorkflowId = workflowIdForRun(cancelRunId);
 const taskQueue = `ayra-db-task-test-${randomUUID()}`;
 const workerPath = fileURLToPath(new URL('./db-task-workflow-worker.ts', import.meta.url));
 const workers = new Set<ChildProcessWithoutNullStreams>();
@@ -66,11 +69,13 @@ function startWorker(): Promise<ChildProcessWithoutNullStreams> {
   });
 }
 
-async function waitForPaused(client: Client) {
+async function waitForPaused(client: Client, targetWorkflowId = workflowId) {
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     try {
-      if ((await client.workflow.getHandle(workflowId).query<string>('taskStage')) === 'PAUSED')
+      if (
+        (await client.workflow.getHandle(targetWorkflowId).query<string>('taskStage')) === 'PAUSED'
+      )
         return;
     } catch {
       // Workflow may not have completed its first Workflow Task yet.
@@ -78,6 +83,20 @@ async function waitForPaused(client: Client) {
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
   }
   throw new Error('DB-backed Task Workflow did not reach PAUSED');
+}
+
+async function waitForWorkflowStart(client: Client, targetWorkflowId = workflowId) {
+  const handle = client.workflow.getHandle(targetWorkflowId);
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    try {
+      await handle.describe();
+      return handle;
+    } catch {
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+    }
+  }
+  throw new Error('Worker loop did not dispatch the queued Task Workflow');
 }
 
 try {
@@ -89,20 +108,37 @@ try {
     connection: activeConnection,
     namespace: process.env.TEMPORAL_NAMESPACE ?? 'ayra-development',
   });
-  const dispatched = await dispatchTaskStartBatch(pool, async (claimedRunId, claimedWorkflowId) => {
-    if (claimedRunId !== runId || claimedWorkflowId !== workflowId)
-      throw new Error('Outbox claimed an unexpected test Run');
-    await client.workflow.signalWithStart('taskWorkflow', {
-      args: [claimedRunId],
-      workflowId: claimedWorkflowId,
-      taskQueue,
-      signal: 'pauseTask',
-      signalArgs: [],
-    });
-  });
-  if (dispatched.started !== 1 || dispatched.failed !== 0)
-    throw new Error(`Real Task start dispatch failed: ${JSON.stringify(dispatched)}`);
+  const [mainHandle, cancelHandle] = await Promise.all([
+    waitForWorkflowStart(client),
+    waitForWorkflowStart(client, cancelWorkflowId),
+  ]);
+  await Promise.all([mainHandle.signal('pauseTask'), cancelHandle.signal('pauseTask')]);
   await waitForPaused(client);
+  await waitForPaused(client, cancelWorkflowId);
+  const cancelDb = await pool.connect();
+  try {
+    await cancelDb.query('BEGIN');
+    await cancelDb.query("SELECT set_config('ayra.actor_user_id', $1, true)", [actorId]);
+    const current = await cancelDb.query<{ version: string }>(
+      'SELECT version FROM tasks WHERE id = $1',
+      [cancelTaskId],
+    );
+    const version = Number(current.rows[0]?.version);
+    if (!Number.isSafeInteger(version)) throw new Error('Active cancellation Task is missing');
+    const canceled = await cancelDb.query<{ result_code: string; run_id: string }>(
+      'SELECT * FROM ayra.cancel_task_attempt($1, $2)',
+      [cancelTaskId, version],
+    );
+    if (canceled.rows[0]?.result_code !== 'CANCELED' || canceled.rows[0].run_id !== cancelRunId)
+      throw new Error('Active Task cancellation transaction failed');
+    await cancelDb.query('COMMIT');
+  } finally {
+    await cancelDb.query('ROLLBACK');
+    cancelDb.release();
+  }
+  const canceledWorkflow = await cancelHandle.result();
+  if (canceledWorkflow?.status !== 'CANCELED')
+    throw new Error('Worker loop did not deliver active Task cancellation');
 
   // Close the client and kill the Worker; neither is Task's source of truth.
   await activeConnection.close();
@@ -164,14 +200,16 @@ try {
   console.info('PASS: DB Task survived client disconnect and Worker SIGKILL, then completed.');
 } finally {
   if (activeConnection) {
-    try {
-      const client = new Client({
-        connection: activeConnection,
-        namespace: process.env.TEMPORAL_NAMESPACE ?? 'ayra-development',
-      });
-      await client.workflow.getHandle(workflowId).terminate('M3 integration cleanup');
-    } catch {
-      // Completed Workflow cannot be terminated.
+    const client = new Client({
+      connection: activeConnection,
+      namespace: process.env.TEMPORAL_NAMESPACE ?? 'ayra-development',
+    });
+    for (const target of [workflowId, cancelWorkflowId]) {
+      try {
+        await client.workflow.getHandle(target).terminate('M3 integration cleanup');
+      } catch {
+        // Completed Workflow cannot be terminated.
+      }
     }
     await activeConnection.close();
   }

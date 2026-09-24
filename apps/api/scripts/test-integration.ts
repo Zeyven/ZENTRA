@@ -1626,6 +1626,27 @@ try {
   migrationSql(
     `UPDATE outbox_events SET published_at = NULL WHERE id = '${expectUuid(firstClaim.event_id)}';`,
   );
+  const activeCancelDraft = await call(
+    'integration-alice',
+    'POST',
+    '/v1/tasks',
+    {
+      workspaceId: alpha,
+      title: 'Cancel active execution',
+      goal: 'Verify durable cancellation signal',
+      type: 'RESEARCH',
+    },
+    { 'idempotency-key': randomUUID() },
+  );
+  const activeCancelTaskId = expectUuid(activeCancelDraft.json().id);
+  const activeCancelStart = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${activeCancelTaskId}/start`,
+    { version: 1 },
+    { 'idempotency-key': randomUUID() },
+  );
+  const activeCancelRunId = expectUuid(activeCancelStart.json().runId);
   const m3WorkflowTest = spawnSync(
     process.execPath,
     [
@@ -1638,6 +1659,8 @@ try {
       env: {
         ...process.env,
         AYRA_TEST_RUN_ID: startedRunId,
+        AYRA_TEST_CANCEL_TASK_ID: activeCancelTaskId,
+        AYRA_TEST_CANCEL_RUN_ID: activeCancelRunId,
         AYRA_TEST_ACTOR_ID: expectUuid(users[0]),
         AYRA_TEST_KEEP_RESULT_OBJECT: '1',
       },
@@ -1654,8 +1677,25 @@ try {
   check(
     completedTask.json().status === 'COMPLETED' &&
       completedTask.json().currentRunId === startedRunId &&
-      migrationSql(`SELECT status FROM runs WHERE id = '${startedRunId}';`) === 'COMPLETED',
+      migrationSql(`SELECT status FROM runs WHERE id = '${startedRunId}';`) === 'COMPLETED' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE id = '${expectUuid(firstClaim.event_id)}' AND published_at IS NOT NULL;`,
+      ) === '1',
     'Temporal Workflow did not commit canonical Task and Run completion',
+  );
+  const activeCanceledTask = await call(
+    'integration-alice',
+    'GET',
+    `/v1/tasks/${activeCancelTaskId}`,
+  );
+  check(
+    activeCanceledTask.json().status === 'CANCELED' &&
+      activeCanceledTask.json().currentRunId === activeCancelRunId &&
+      migrationSql(`SELECT status FROM runs WHERE id = '${activeCancelRunId}';`) === 'CANCELED' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${activeCancelTaskId}' AND payload->>'status' = 'CANCELED' AND published_at IS NOT NULL;`,
+      ) === '1',
+    'Running Task cancellation was not delivered and committed canonically',
   );
   check(
     migrationSql(

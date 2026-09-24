@@ -1,9 +1,8 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { NativeConnection, Worker } from '@temporalio/worker';
 import pg from 'pg';
-import { fileURLToPath } from 'node:url';
 import { createTaskActivities } from '../src/task-activities';
 import { createResultArtifactCanonicalizer } from '../src/result-artifact';
+import { runTaskExecutionProcess } from '../src/task-execution-process';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required for M3 integration Worker');
@@ -20,16 +19,15 @@ const s3 = new S3Client({
   forcePathStyle: true,
   credentials: { accessKeyId, secretAccessKey },
 });
-const connection = await NativeConnection.connect({
-  address: process.env.TEMPORAL_ADDRESS ?? '127.0.0.1:7233',
-});
+const shutdown = new AbortController();
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => shutdown.abort());
 try {
   const canonicalize = createResultArtifactCanonicalizer(pool, s3, bucket);
   const activities = createTaskActivities(
     pool,
     {
       async understand(_runId, goal) {
-        await new Promise((resolveDelay) => setTimeout(resolveDelay, 800));
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 3000));
         return `understood: ${goal}`;
       },
       async plan(_runId, understanding) {
@@ -47,17 +45,17 @@ try {
       await canonicalize(runId, output);
     },
   );
-  const worker = await Worker.create({
-    connection,
+  await runTaskExecutionProcess({
+    pool,
+    activities,
+    address: process.env.TEMPORAL_ADDRESS ?? '127.0.0.1:7233',
     namespace: process.env.TEMPORAL_NAMESPACE ?? 'ayra-development',
     taskQueue: process.env.AYRA_TEST_TASK_QUEUE ?? 'ayra-db-task-test',
-    workflowsPath: fileURLToPath(new URL('../src/task.workflow.ts', import.meta.url)),
-    activities,
+    signal: shutdown.signal,
+    pollIntervalMs: 100,
+    onReady: () => console.info('AYRA_DB_TASK_WORKER_READY'),
   });
-  console.info('AYRA_DB_TASK_WORKER_READY');
-  await worker.run();
 } finally {
   await pool.end();
   s3.destroy();
-  await connection.close();
 }
