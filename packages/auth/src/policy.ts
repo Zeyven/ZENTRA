@@ -13,6 +13,8 @@ export type PolicyAction =
   | 'conversation:create'
   | 'conversation:read'
   | 'conversation:update'
+  | 'conversation:message:create'
+  | 'conversation:message:read'
   | 'conversation:archive'
   | 'conversation:restore'
   | 'resource:create'
@@ -67,6 +69,7 @@ export const workspacePolicy: PolicyEngine = {
         action === 'project:restore' ||
         action === 'conversation:create' ||
         action === 'conversation:update' ||
+        action === 'conversation:message:create' ||
         action === 'conversation:archive' ||
         action === 'conversation:restore' ||
         action === 'resource:create' ||

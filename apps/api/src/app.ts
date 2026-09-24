@@ -5,6 +5,7 @@ import { registerWorkspaceRoutes } from './workspaces';
 import { registerProjectRoutes } from './projects';
 import { registerTaskRoutes } from './tasks';
 import { registerConversationRoutes } from './conversations';
+import { registerConversationMessageRoutes } from './conversation-messages';
 import { registerResourceRoutes } from './resources';
 import { registerArtifactRoutes } from './artifacts';
 import { registerTaskEventStream } from './task-event-stream';
@@ -49,6 +50,7 @@ export async function createApp(services: Services = {}) {
   registerTaskRoutes(app, services);
   registerTaskEventStream(app, services);
   registerConversationRoutes(app, services);
+  registerConversationMessageRoutes(app, services);
   registerResourceRoutes(app, services);
   registerArtifactRoutes(app, services);
   registerApprovalRoutes(app, services);

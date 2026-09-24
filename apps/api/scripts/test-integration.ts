@@ -1100,6 +1100,119 @@ try {
       200,
     'Shared Conversation was not readable',
   );
+  const messagesUrl = `/v1/conversations/${conversationId}/messages`;
+  const firstMessageKey = randomUUID();
+  check(
+    (await call('integration-alice', 'POST', messagesUrl, { body: 'Private research note' }))
+      .statusCode === 400,
+    'Conversation Message accepted missing idempotency key',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        messagesUrl,
+        { body: 'Spoofed AI', authorKind: 'ASSISTANT' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 400,
+    'Public Conversation Message route accepted assistant impersonation',
+  );
+  check(
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        messagesUrl,
+        { body: 'Member write' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 403,
+    'MEMBER appended a Conversation Message',
+  );
+  const firstMessage = await call(
+    'integration-alice',
+    'POST',
+    messagesUrl,
+    { body: 'Private research note' },
+    { 'idempotency-key': firstMessageKey },
+  );
+  check(
+    firstMessage.statusCode === 201 &&
+      firstMessage.json().sequence === 1 &&
+      firstMessage.json().authorKind === 'USER',
+    'First Conversation Message append failed',
+  );
+  const firstMessageId = expectUuid(firstMessage.json().id);
+  const replayMessage = await call(
+    'integration-alice',
+    'POST',
+    messagesUrl,
+    { body: 'Private research note' },
+    { 'idempotency-key': firstMessageKey },
+  );
+  check(
+    replayMessage.statusCode === 201 && replayMessage.json().id === firstMessageId,
+    'Conversation Message idempotency replay changed identity',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        messagesUrl,
+        { body: 'Changed research note' },
+        { 'idempotency-key': firstMessageKey },
+      )
+    ).statusCode === 409,
+    'Conversation Message idempotency key accepted a changed body',
+  );
+  const secondMessage = await call(
+    'integration-alice',
+    'POST',
+    messagesUrl,
+    { body: 'Second research note' },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(
+    secondMessage.statusCode === 201 && secondMessage.json().sequence === 2,
+    'Conversation Message sequence did not advance',
+  );
+  const secondMessageId = expectUuid(secondMessage.json().id);
+  const firstMessagePage = await call('integration-bob', 'GET', `${messagesUrl}?limit=1`);
+  const secondMessagePage = await call(
+    'integration-bob',
+    'GET',
+    `${messagesUrl}?limit=1&afterSequence=1`,
+  );
+  check(
+    firstMessagePage.statusCode === 200 &&
+      firstMessagePage.json().messages[0]?.id === firstMessageId &&
+      firstMessagePage.json().nextAfterSequence === 1 &&
+      secondMessagePage.statusCode === 200 &&
+      secondMessagePage.json().messages[0]?.id === secondMessageId &&
+      secondMessagePage.json().nextAfterSequence === 2,
+    'Conversation Message membership read or keyset pagination failed',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM conversation_messages WHERE conversation_id = '${conversationId}';`,
+    ) === '2' &&
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id IN ('${firstMessageId}', '${secondMessageId}') AND action = 'conversation.message_created.v1';`,
+      ) === '2' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id IN ('${firstMessageId}', '${secondMessageId}') AND event_type = 'conversation.message_created.v1' AND payload::text NOT LIKE '%Private research note%' AND payload::text NOT LIKE '%Second research note%';`,
+      ) === '2',
+    'Conversation Message persistence or body-free audit/outbox failed',
+  );
+  check(
+    migrationSql(
+      "SELECT has_table_privilege('application_role', 'conversation_messages', 'INSERT, UPDATE, DELETE');",
+    ) === 'f',
+    'Application role can directly mutate Conversation Messages',
+  );
   check(
     (
       await call(
@@ -1141,6 +1254,10 @@ try {
     'Bob read Alice Conversation',
   );
   check(
+    (await call('integration-bob', 'GET', messagesUrl)).statusCode === 404,
+    'Suspended member read Conversation Messages',
+  );
+  check(
     (await call('integration-alice', 'GET', `/v1/conversations?workspaceId=${alpha}`)).json()
       .conversations[0]?.id === conversationId,
     'Conversation list missed entity',
@@ -1180,6 +1297,22 @@ try {
     'Archived Conversation remained active',
   );
   check(
+    (await call('integration-alice', 'GET', messagesUrl)).statusCode === 404,
+    'Archived Conversation Messages remained readable',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        messagesUrl,
+        { body: 'Archive write' },
+        { 'idempotency-key': randomUUID() },
+      )
+    ).statusCode === 409,
+    'Archived Conversation accepted a new Message',
+  );
+  check(
     (
       await call('integration-alice', 'GET', `/v1/conversations?workspaceId=${alpha}&archived=true`)
     ).json().conversations[0]?.id === conversationId,
@@ -1202,6 +1335,10 @@ try {
   check(
     restoredConversation.statusCode === 200 && restoredConversation.json().archivedAt === null,
     'Conversation restore failed',
+  );
+  check(
+    (await call('integration-alice', 'GET', messagesUrl)).json().messages.length === 2,
+    'Restored Conversation did not expose previous Messages',
   );
   for (const eventType of [
     'conversation.created.v1',
@@ -2261,6 +2398,9 @@ try {
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM resources WHERE workspace_id IN (${workspaces
+          .map(expectUuid)
+          .map((id) => `'${id}'`)
+          .join(',')}); DELETE FROM conversation_messages WHERE workspace_id IN (${workspaces
           .map(expectUuid)
           .map((id) => `'${id}'`)
           .join(',')}); DELETE FROM conversations WHERE workspace_id IN (${workspaces
