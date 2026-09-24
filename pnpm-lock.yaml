@@ -139,6 +139,9 @@ importers:
       '@ayra/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@ayra/tool-gateway':
+        specifier: workspace:*
+        version: link:../../packages/tool-gateway
       '@temporalio/client':
         specifier: 1.24.0
         version: 1.24.0
