@@ -1,6 +1,7 @@
 import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { createClerkIdentityProvider } from '@ayra/auth';
 import type { ApprovalId, ArtifactId, RunId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
@@ -9,7 +10,6 @@ import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artif
 import { createRunAttempt, readRunAttempt } from '../src/runs';
 import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
 import { dispatchTaskStartBatch, workflowIdForRun } from '../../worker/src/outbox-dispatcher';
-import { createTaskActivities } from '../../worker/src/task-activities';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -1491,31 +1491,13 @@ try {
       ) === '1',
     'Outbox dispatcher did not deliver and acknowledge the committed Task start',
   );
-  let canonicalized = false;
-  const activities = createTaskActivities(
-    pool,
-    {
-      async understand(_runId, goal) {
-        return goal;
-      },
-      async plan(_runId, understanding) {
-        return understanding;
-      },
-      async execute(_runId, plan) {
-        return plan;
-      },
-      async verify() {
-        return true;
-      },
-    },
-    async () => {
-      canonicalized = true;
-    },
+  const executionSnapshot = await pool.query<{ task_id: string; goal: string }>(
+    'SELECT * FROM ayra.load_task_run($1)',
+    [startedRunId],
   );
-  const executionSnapshot = await activities.loadTask(startedRunId);
   check(
-    executionSnapshot.taskId === startTaskId &&
-      executionSnapshot.goal === 'Verify the canonical start transaction',
+    executionSnapshot.rows[0]?.task_id === startTaskId &&
+      executionSnapshot.rows[0]?.goal === 'Verify the canonical start transaction',
     'Worker could not load the canonical queued Task by Run ID',
   );
   let rejectedSkip = false;
@@ -1525,10 +1507,35 @@ try {
     rejectedSkip = true;
   }
   check(rejectedSkip, 'Worker skipped the PostgreSQL Task transition guard');
-  for (const stage of ['UNDERSTANDING', 'PLANNING', 'RUNNING', 'VERIFYING'] as const)
-    await activities.enterStage(startedRunId, stage);
-  await activities.completeRun(startedRunId, 'Verified test output');
-  check(canonicalized, 'Worker completed Run without canonicalizing output');
+  migrationSql(
+    `UPDATE outbox_events SET published_at = NULL WHERE id = '${expectUuid(firstClaim.event_id)}';`,
+  );
+  const m3WorkflowTest = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      fileURLToPath(new URL('../../worker/scripts/test-db-task-workflow.ts', import.meta.url)),
+    ],
+    {
+      cwd: process.cwd(),
+      env: { ...process.env, AYRA_TEST_RUN_ID: startedRunId },
+      encoding: 'utf8',
+      timeout: 90000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  check(
+    m3WorkflowTest.status === 0 && m3WorkflowTest.stdout.includes('PASS: DB Task survived'),
+    `DB + Temporal Task Workflow integration failed (${m3WorkflowTest.status})`,
+  );
+  const completedTask = await call('integration-alice', 'GET', `/v1/tasks/${startTaskId}`);
+  check(
+    completedTask.json().status === 'COMPLETED' &&
+      completedTask.json().currentRunId === startedRunId &&
+      migrationSql(`SELECT status FROM runs WHERE id = '${startedRunId}';`) === 'COMPLETED',
+    'Temporal Workflow did not commit canonical Task and Run completion',
+  );
   check(
     (
       await pool.query<{ result: string }>('SELECT ayra.worker_task_transition($1, $2) AS result', [
