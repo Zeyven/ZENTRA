@@ -54,7 +54,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
       - if: matrix.os == 'windows-latest'
-        run: pnpm build:desktop:native
+        run: pnpm build:desktop:preview:windows
+      - if: matrix.os == 'windows-latest'
+        name: Checksum unsigned Windows preview
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer was not created' }
+          $hash = (Get-FileHash -Algorithm SHA256 -Path $installer.FullName).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -Encoding ascii -Path "$($installer.FullName).sha256"
+      - if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ayra-windows-unsigned-preview
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+            apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
       - if: matrix.os == 'macos-latest'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
       - if: matrix.os == 'macos-latest'

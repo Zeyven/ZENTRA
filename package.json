@@ -22,6 +22,7 @@
     "build": "pnpm -r --workspace-concurrency=2 build",
     "build:desktop:native": "pnpm --filter @ayra/desktop build:native",
     "build:desktop:preview:macos": "pnpm --filter @ayra/desktop build:preview:macos",
+    "build:desktop:preview:windows": "pnpm --filter @ayra/desktop build:preview:windows",
     "lint": "eslint . && node scripts/check-boundaries.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

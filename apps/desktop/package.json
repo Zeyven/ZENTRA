@@ -8,7 +8,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "build:native": "tauri build --no-bundle",
-    "build:preview:macos": "pnpm build && CI=true tauri build --target universal-apple-darwin --bundles dmg --no-sign -c '{\"bundle\":{\"active\":true},\"build\":{\"beforeBuildCommand\":\"\"}}'",
+    "build:preview:macos": "pnpm build && CI=true tauri build --target universal-apple-darwin --bundles dmg --no-sign -c src-tauri/tauri.preview.conf.json",
+    "build:preview:windows": "pnpm build && tauri build --bundles nsis --no-sign -c src-tauri/tauri.preview.conf.json",
     "dev:native": "tauri dev"
   },
   "dependencies": {

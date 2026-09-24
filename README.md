@@ -43,6 +43,8 @@ pnpm build:desktop:native
 
 macOS 开发预览可运行 `rustup target add x86_64-apple-darwin aarch64-apple-darwin` 后执行 `pnpm build:desktop:preview:macos`。该命令生成 Intel + Apple Silicon 通用 DMG；CI 校验磁盘映像并保留 7 天的构建产物。它是未签名的 `0.0.0` 原型，尚未经过 Developer ID 签名、公证或发布验收，不应作为官网正式下载提供。
 
+Windows 开发预览可在 Windows 上运行 `pnpm build:desktop:preview:windows` 生成 NSIS 安装程序；CI 计算 SHA-256 并保留 7 天的构建产物。Windows 预览同样未签名，也尚未完成安装后的真实功能与安全验收。
+
 GitHub Actions 配置包括工程检查、真实 Compose 服务验证及 macOS/Windows 原生编译。配置存在不等于远端 CI 已通过。
 
 ## 工程边界
