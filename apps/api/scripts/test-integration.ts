@@ -47,7 +47,7 @@ const tokens = Object.fromEntries(
     signedToken(label),
   ]),
 );
-const app = await createApp({ identity, pool });
+const app = await createApp({ identity, pool, taskExecutionEnabled: true });
 let cleanupFailed = false;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function expectUuid(value: unknown): string {
@@ -1377,43 +1377,84 @@ try {
   );
   check(startDraft.statusCode === 201, 'Task start fixture could not be created');
   const startTaskId = expectUuid(startDraft.json().id);
-  const startClient = await pool.connect();
-  let startedRunId = '';
-  try {
-    await startClient.query('BEGIN');
-    await startClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [bobId]);
-    const deniedStart = await startClient.query<{ result_code: string }>(
-      'SELECT result_code FROM ayra.start_task_attempt($1, $2)',
-      [startTaskId, 1],
-    );
-    check(deniedStart.rows[0]?.result_code === 'NOT_FOUND', 'Suspended member started Task');
-    await startClient.query('ROLLBACK');
-
-    await startClient.query('BEGIN');
-    await startClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [users[0]]);
-    const started = await startClient.query<{
-      result_code: string;
-      run_id: string;
-      task_version: string;
-    }>('SELECT * FROM ayra.start_task_attempt($1, $2)', [startTaskId, 1]);
-    startedRunId = expectUuid(started.rows[0]?.run_id);
-    check(
-      started.rows[0]?.result_code === 'STARTED' && Number(started.rows[0].task_version) === 2,
-      'Canonical Task start did not advance version and create a Run',
-    );
-    const duplicate = await startClient.query<{ result_code: string }>(
-      'SELECT result_code FROM ayra.start_task_attempt($1, $2)',
-      [startTaskId, 1],
-    );
-    check(
-      duplicate.rows[0]?.result_code === 'CONFLICT',
-      'Duplicate Task start created another Run',
-    );
-    await startClient.query('COMMIT');
-  } finally {
-    await startClient.query('ROLLBACK');
-    startClient.release();
-  }
+  const startPath = `/v1/tasks/${startTaskId}/start`;
+  const startKey = randomUUID();
+  check(
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        startPath,
+        { version: 1 },
+        { 'idempotency-key': startKey },
+      )
+    ).statusCode === 404,
+    'Suspended member started Task',
+  );
+  check(
+    (await call('integration-alice', 'POST', startPath, { version: 1 })).statusCode === 400,
+    'Task start accepted a missing idempotency key',
+  );
+  const startResponse = await call(
+    'integration-alice',
+    'POST',
+    startPath,
+    { version: 1 },
+    { 'idempotency-key': startKey },
+  );
+  const startedRunId = expectUuid(startResponse.json().runId);
+  check(
+    startResponse.statusCode === 202 &&
+      startResponse.json().status === 'QUEUED' &&
+      startResponse.json().version === 2,
+    'Authorized Task start did not create a queued Run',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        startPath,
+        { version: 1 },
+        {
+          'idempotency-key': startKey,
+        },
+      )
+    ).json().runId === startedRunId,
+    'Task start idempotency replay changed Run identity',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        startPath,
+        { version: 2 },
+        {
+          'idempotency-key': startKey,
+        },
+      )
+    ).statusCode === 409,
+    'Task start accepted reused idempotency key with changed version',
+  );
+  const rejectedStartKey = randomUUID();
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        startPath,
+        { version: 1 },
+        {
+          'idempotency-key': rejectedStartKey,
+        },
+      )
+    ).statusCode === 409 &&
+      migrationSql(
+        `SELECT count(*) FROM idempotency_records WHERE workspace_id = '${alpha}' AND key = '${rejectedStartKey}';`,
+      ) === '0',
+    'Rejected Task start stranded an idempotency reservation',
+  );
   const queued = await call('integration-alice', 'GET', `/v1/tasks/${startTaskId}`);
   check(
     queued.json().status === 'QUEUED' && queued.json().currentRunId === startedRunId,

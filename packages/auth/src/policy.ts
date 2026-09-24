@@ -29,6 +29,7 @@ export type PolicyAction =
   | 'approval:create'
   | 'approval:read'
   | 'task:create'
+  | 'task:start'
   | 'task:read'
   | 'task:update'
   | 'task:delete';
@@ -74,6 +75,7 @@ export const workspacePolicy: PolicyEngine = {
         action === 'run:update' ||
         action === 'approval:create' ||
         action === 'task:create' ||
+        action === 'task:start' ||
         action === 'task:update' ||
         action === 'task:delete') &&
       membership.role !== 'OWNER'

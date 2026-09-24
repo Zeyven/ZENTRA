@@ -9,6 +9,16 @@ describe('control plane foundation', () => {
       expect(live.json()).toEqual({ status: 'ok', service: 'ayra-api' });
       expect((await app.inject({ method: 'GET', url: '/health/ready' })).statusCode).toBe(503);
       expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/v1/tasks/00000000-0000-4000-8000-000000000001/start',
+            headers: { 'idempotency-key': 'start-disabled' },
+            payload: { version: 1 },
+          })
+        ).json(),
+      ).toEqual({ error: 'task_execution_unavailable' });
+      expect(
         (await app.inject({ method: 'POST', url: '/v1/tasks', payload: { goal: 'run shell' } }))
           .statusCode,
       ).toBe(400);

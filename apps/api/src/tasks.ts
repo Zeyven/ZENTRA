@@ -6,7 +6,7 @@ import { claimIdempotency, finishIdempotency, readIdempotencyKey } from './idemp
 import { roleInWorkspace } from './membership';
 import { requireActiveProject } from './project-reference';
 import type { Services } from './request-context';
-import { runAuthorized } from './request-context';
+import { runAuthorized, TransactionalConflictError } from './request-context';
 
 const uuidParam = {
   type: 'object',
@@ -121,6 +121,84 @@ export function registerTaskRoutes(app: FastifyInstance, services: Services) {
       });
       if (reply.sent) return reply;
       return reply.code(201).send(outcome);
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { version: number } }>(
+    '/v1/tasks/:id/start',
+    {
+      schema: {
+        params: uuidParam,
+        body: {
+          type: 'object',
+          required: ['version'],
+          additionalProperties: false,
+          properties: { version: { type: 'integer', minimum: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!services.taskExecutionEnabled)
+        return reply.code(503).send({ error: 'task_execution_unavailable' });
+      const idempotencyKey = readIdempotencyKey(request.headers['idempotency-key']);
+      if (!idempotencyKey) return reply.code(400).send({ error: 'idempotency_key_required' });
+      const taskId = request.params.id;
+      const expectedVersion = request.body.version;
+      const requestHash = createHash('sha256')
+        .update(JSON.stringify({ taskId, expectedVersion }))
+        .digest('hex');
+      const outcome = await runAuthorized(services, request, reply, async (client, actor) => {
+        const existing = await client.query<TaskRow>(selectTask, [taskId]);
+        const task = existing.rows[0];
+        if (!task) return reply.code(404).send({ error: 'task_not_found' });
+        const role = await roleInWorkspace(client, actor, task.workspace_id);
+        const decision = workspacePolicy.authorize({
+          actor,
+          action: 'task:start',
+          workspaceId: task.workspace_id,
+          membership: role ? { workspaceId: task.workspace_id, role, status: 'ACTIVE' } : null,
+        });
+        if (!decision.allowed) return denied(reply, decision.reason);
+        const claim = await claimIdempotency(
+          client,
+          task.workspace_id,
+          'task:start',
+          idempotencyKey,
+          requestHash,
+        );
+        if (claim.kind === 'conflict')
+          return reply.code(409).send({ error: 'idempotency_key_conflict' });
+        if (claim.kind === 'replay') {
+          const previous = await client.query<{ id: string }>(
+            'SELECT id FROM runs WHERE id = $1 AND task_id = $2 AND workspace_id = $3',
+            [claim.resultRef, task.id, task.workspace_id],
+          );
+          if (!previous.rows[0]) throw new Error('Idempotency Run missing');
+          return {
+            taskId: task.id,
+            runId: previous.rows[0].id,
+            status: task.status,
+            version: Number(task.version),
+          };
+        }
+        const started = await client.query<{
+          result_code: string;
+          run_id: string | null;
+          task_version: string | null;
+        }>('SELECT * FROM ayra.start_task_attempt($1, $2)', [task.id, expectedVersion]);
+        const result = started.rows[0];
+        if (result?.result_code !== 'STARTED' || !result.run_id || !result.task_version)
+          throw new TransactionalConflictError('Task is no longer a Draft at the expected version');
+        await finishIdempotency(client, claim.recordId, result.run_id);
+        return {
+          taskId: task.id,
+          runId: result.run_id,
+          status: 'QUEUED',
+          version: Number(result.task_version),
+        };
+      });
+      if (reply.sent) return reply;
+      return reply.code(202).send(outcome);
     },
   );
 

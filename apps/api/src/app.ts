@@ -9,7 +9,9 @@ import { registerConversationRoutes } from './conversations';
 import { registerResourceRoutes } from './resources';
 import { registerArtifactRoutes } from './artifacts';
 import { registerTaskEventStream } from './task-event-stream';
-export async function createApp(services: { identity?: IdentityProvider; pool?: Pool } = {}) {
+export async function createApp(
+  services: { identity?: IdentityProvider; pool?: Pool; taskExecutionEnabled?: boolean } = {},
+) {
   const app = Fastify({
     logger: {
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
