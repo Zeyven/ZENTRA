@@ -63,8 +63,14 @@ export function createTaskActivities(
     async cancelRun(runId) {
       await transition(runId, 'CANCELED');
     },
-    async failRun(runId) {
-      await transition(runId, 'FAILED');
+    async failRun(runId, reason) {
+      const result = await pool.query<{ outcome: string }>(
+        'SELECT ayra.worker_fail_task($1, $2) AS outcome',
+        [runId, reason],
+      );
+      const outcome = result.rows[0]?.outcome;
+      if (outcome !== 'UPDATED' && outcome !== 'UNCHANGED')
+        throw new Error(`Canonical Task failure rejected: ${outcome ?? 'UNKNOWN'}`);
     },
   };
 }

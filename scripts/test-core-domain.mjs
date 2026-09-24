@@ -501,9 +501,21 @@ try {
       workerRequest(alice).startsWith('CONFLICT'),
     'Worker-created Approval could not be consumed once',
   );
-  console.info(
-    'PASS: M2 invariants and M5 Approval request, decision, consumption, revocation, and event guards.',
+  expectFailure(`SELECT ayra.worker_fail_task('${run}','PRIVATE_ERROR')`, true);
+  assert(
+    query(`SELECT ayra.worker_fail_task('${run}','TASK_ACTIVITY_FAILED')`, true) === 'UPDATED' &&
+      query(`SELECT ayra.worker_fail_task('${run}','TASK_ACTIVITY_FAILED')`, true) ===
+        'UNCHANGED' &&
+      query(`SELECT status || '|' || failure_code FROM tasks WHERE id = '${task}'`) ===
+        'FAILED|TASK_ACTIVITY_FAILED' &&
+      query(`SELECT status FROM runs WHERE id = '${run}'`) === 'FAILED' &&
+      query(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${task}'
+           AND payload->>'failureCode' = 'TASK_ACTIVITY_FAILED'`,
+      ) === '1',
+    'Worker failure did not atomically expose one bounded reason',
   );
+  console.info('PASS: M2 invariants, bounded Task failure, and M5 Approval and event guards.');
 } finally {
   if (workspaces.length) {
     const ids = workspaces

@@ -1949,15 +1949,28 @@ try {
       rejectedWorkflowTest.stdout.includes('PASS: Rejected Approval failed'),
     `DB + Temporal Approval rejection failed (${rejectedWorkflowTest.status}): ${rejectedWorkflowTest.stdout.slice(-1000)} ${rejectedWorkflowTest.stderr.slice(-1000)}`,
   );
+  const rejectedTask = (
+    await call('integration-alice', 'GET', `/v1/tasks/${rejectedWorkflowTaskId}`)
+  ).json();
   check(
-    (await call('integration-alice', 'GET', `/v1/tasks/${rejectedWorkflowTaskId}`)).json()
-      .status === 'FAILED' &&
+    rejectedTask.status === 'FAILED' &&
+      rejectedTask.failureCode === 'APPROVAL_REJECTED' &&
       migrationSql(
         `SELECT count(*) FROM approvals WHERE run_id = '${rejectedWorkflowRunId}' AND status = 'REJECTED';`,
       ) === '1' &&
       migrationSql(`SELECT count(*) FROM artifacts WHERE run_id = '${rejectedWorkflowRunId}';`) ===
         '0',
-    'Rejected Approval created an output or failed to terminate the Task',
+    'Rejected Approval did not expose the bounded failure code or created an output',
+  );
+  const rejectedEvents = (
+    await call('integration-alice', 'GET', `/v1/tasks/${rejectedWorkflowTaskId}/events`)
+  ).json().events as { payload: { status?: string; failureCode?: string } }[];
+  check(
+    rejectedEvents.some(
+      (event) =>
+        event.payload.status === 'FAILED' && event.payload.failureCode === 'APPROVAL_REJECTED',
+    ),
+    'Rejected Approval event lost the bounded failure code',
   );
   const cancelQueuedDraft = await call(
     'integration-alice',

@@ -142,23 +142,25 @@ export async function taskWorkflow(runId: string): Promise<{ runId: string; stat
     return { runId, status: 'COMPLETED' };
   } catch (error) {
     const cancellation = canceled || isCancellation(error);
+    const failureCode =
+      error instanceof Error &&
+      ['APPROVAL_REJECTED', 'APPROVAL_EXPIRED', 'APPROVAL_STALE', 'VERIFICATION_FAILED'].includes(
+        error.message,
+      )
+        ? error.message
+        : 'TASK_ACTIVITY_FAILED';
     await CancellationScope.nonCancellable(async () => {
       if (cancellation) {
         await canonicalWrite.cancelRun(runId);
         stage = 'CANCELED';
       } else {
-        await canonicalWrite.failRun(
-          runId,
-          error instanceof Error && error.message === 'VERIFICATION_FAILED'
-            ? 'VERIFICATION_FAILED'
-            : 'TASK_ACTIVITY_FAILED',
-        );
+        await canonicalWrite.failRun(runId, failureCode);
         stage = 'FAILED';
       }
     });
     if (cancellation) return { runId, status: 'CANCELED' };
     throw ApplicationFailure.create({
-      message: error instanceof Error ? error.message : 'TASK_ACTIVITY_FAILED',
+      message: failureCode,
       type: 'AYRA_TASK_FAILED',
       nonRetryable: true,
     });
