@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createClerkIdentityProvider } from '@ayra/auth';
 import type { ApprovalId, ArtifactId, RunId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
 import { createApp } from '../src/app';
@@ -13,6 +13,7 @@ import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
 import { dispatchTaskStartBatch, workflowIdForRun } from '../../worker/src/outbox-dispatcher';
 import { dispatchTaskCancelBatch } from '../../worker/src/cancel-dispatcher';
 import { dispatchTaskControlBatch } from '../../worker/src/control-dispatcher';
+import { purgeDueArtifacts } from '../../worker/src/artifact-purge';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -1842,6 +1843,122 @@ try {
       `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${startTaskId}' AND event_type = 'task.status_changed.v1';`,
     ) === '6',
     'Worker stage changes lost or duplicated transactional Task events',
+  );
+  const retentionClient = await pool.connect();
+  try {
+    await retentionClient.query('BEGIN');
+    await retentionClient.query("SELECT set_config('ayra.actor_user_id', $1, true)", [
+      expectUuid(users[0]),
+    ]);
+    await softDeleteArtifactMetadata(
+      retentionClient,
+      expectUuid(users[0]) as UserId,
+      resultArtifactId as ArtifactId,
+      1,
+    );
+    await retentionClient.query('COMMIT');
+  } catch (error) {
+    await retentionClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    retentionClient.release();
+  }
+  check(
+    (await purgeDueArtifacts(pool, s3, bucket)).claimed === 0,
+    'Artifact was purged before an explicit retention policy was scheduled',
+  );
+  const purgeRequestId = expectUuid(
+    migrationSql(
+      `UPDATE retention_requests SET status = 'READY', policy_ref = 'integration-only',
+         scheduled_for = now() - interval '1 second'
+       WHERE aggregate_type = 'Artifact' AND aggregate_id = '${resultArtifactId}'
+       RETURNING id;`,
+    ),
+  );
+  const firstPurgeClaim = (
+    await pool.query<{ request_id: string; claim_token: string }>(
+      'SELECT request_id, claim_token FROM ayra.claim_due_artifact_purges($1)',
+      [1],
+    )
+  ).rows[0];
+  if (!firstPurgeClaim) throw new Error('Due Artifact purge could not be claimed');
+  check(
+    firstPurgeClaim?.request_id === purgeRequestId &&
+      (
+        await pool.query<{ outcome: string }>(
+          'SELECT ayra.complete_artifact_purge($1, $2) AS outcome',
+          [purgeRequestId, randomUUID()],
+        )
+      ).rows[0]?.outcome === 'STALE',
+    'Artifact purge accepted a stale lease token',
+  );
+  if (!testResultKey) throw new Error('Result Artifact object key missing');
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: testResultKey }));
+  check(
+    (
+      await pool.query<{ released: boolean }>(
+        'SELECT ayra.fail_artifact_purge($1, $2, $3) AS released',
+        [purgeRequestId, firstPurgeClaim.claim_token, 'OBJECT_DELETE_FAILED'],
+      )
+    ).rows[0]?.released === true,
+    'Interrupted Artifact purge could not release its lease',
+  );
+  const purge = await purgeDueArtifacts(pool, s3, bucket);
+  check(
+    purge.claimed === 1 &&
+      purge.completed === 1 &&
+      migrationSql(`SELECT count(*) FROM artifacts WHERE id = '${resultArtifactId}';`) === '0' &&
+      migrationSql(`SELECT status FROM retention_requests WHERE id = '${purgeRequestId}';`) ===
+        'COMPLETED' &&
+      migrationSql(
+        `SELECT count(*) FROM audit_events WHERE aggregate_id = '${resultArtifactId}' AND action = 'artifact.purged.v1';`,
+      ) === '1' &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${resultArtifactId}' AND event_type = 'artifact.purged.v1';`,
+      ) === '1',
+    'Interrupted Artifact purge did not finish canonically and exactly once',
+  );
+  let objectStillExists = false;
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: testResultKey }));
+    objectStillExists = true;
+  } catch (error) {
+    if (
+      !error ||
+      typeof error !== 'object' ||
+      !('$metadata' in error) ||
+      (error.$metadata as { httpStatusCode?: number }).httpStatusCode !== 404
+    )
+      throw error;
+  }
+  check(!objectStillExists, 'Purged Artifact object remained in S3');
+  check(
+    (await purgeDueArtifacts(pool, s3, bucket)).claimed === 0 &&
+      (
+        await pool.query<{ outcome: string }>(
+          'SELECT ayra.complete_artifact_purge($1, $2) AS outcome',
+          [purgeRequestId, firstPurgeClaim.claim_token],
+        )
+      ).rows[0]?.outcome === 'STALE',
+    'Completed Artifact purge was replayed',
+  );
+  const unsupportedPurgeRequestId = expectUuid(
+    migrationSql(
+      `UPDATE retention_requests SET status = 'READY', policy_ref = 'integration-only',
+         scheduled_for = now() - interval '1 second'
+       WHERE aggregate_type = 'Artifact' AND aggregate_id = '${artifactId}'
+       RETURNING id;`,
+    ),
+  );
+  const unsupportedPurge = await purgeDueArtifacts(pool, s3, bucket);
+  check(
+    unsupportedPurge.claimed === 1 &&
+      unsupportedPurge.failed === 1 &&
+      migrationSql(`SELECT count(*) FROM artifacts WHERE id = '${artifactId}';`) === '1' &&
+      migrationSql(
+        `SELECT status || '|' || last_error_code FROM retention_requests WHERE id = '${unsupportedPurgeRequestId}';`,
+      ) === 'FAILED|UNSUPPORTED_OBJECT_REF',
+    'Unknown Artifact object reference was purged instead of failing closed',
   );
   const approvalWorkflowDraft = await call(
     'integration-alice',
