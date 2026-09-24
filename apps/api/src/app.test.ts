@@ -19,6 +19,16 @@ describe('control plane foundation', () => {
         ).json(),
       ).toEqual({ error: 'task_execution_unavailable' });
       expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/v1/tasks/00000000-0000-4000-8000-000000000001/cancel',
+            headers: { 'idempotency-key': 'cancel-disabled' },
+            payload: { version: 1 },
+          })
+        ).json(),
+      ).toEqual({ error: 'task_execution_unavailable' });
+      expect(
         (await app.inject({ method: 'POST', url: '/v1/tasks', payload: { goal: 'run shell' } }))
           .statusCode,
       ).toBe(400);

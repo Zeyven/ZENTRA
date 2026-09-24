@@ -122,6 +122,13 @@ export function createAyraClient(options: AyraClientOptions) {
         { method: 'POST', body: { version }, idempotencyKey },
       );
     },
+    cancelTask: (taskId: string, version: number, idempotencyKey: string) => {
+      if (!idempotencyKey) throw new Error('Task cancel requires an idempotency key');
+      return request<{ taskId: string; runId: string | null; status: TaskStatus; version: number }>(
+        `/v1/tasks/${encodeURIComponent(taskId)}/cancel`,
+        { method: 'POST', body: { version }, idempotencyKey },
+      );
+    },
     getTaskEvents: (taskId: string, afterVersion = 0, signal?: AbortSignal) =>
       request<{ taskId: string; events: TaskEvent[]; nextAfterVersion: number }>(
         `/v1/tasks/${encodeURIComponent(taskId)}/events?${new URLSearchParams({ afterVersion: String(afterVersion) })}`,

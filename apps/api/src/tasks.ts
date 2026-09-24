@@ -202,6 +202,80 @@ export function registerTaskRoutes(app: FastifyInstance, services: Services) {
     },
   );
 
+  app.post<{ Params: { id: string }; Body: { version: number } }>(
+    '/v1/tasks/:id/cancel',
+    {
+      schema: {
+        params: uuidParam,
+        body: {
+          type: 'object',
+          required: ['version'],
+          additionalProperties: false,
+          properties: { version: { type: 'integer', minimum: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!services.taskExecutionEnabled)
+        return reply.code(503).send({ error: 'task_execution_unavailable' });
+      const idempotencyKey = readIdempotencyKey(request.headers['idempotency-key']);
+      if (!idempotencyKey) return reply.code(400).send({ error: 'idempotency_key_required' });
+      const taskId = request.params.id;
+      const expectedVersion = request.body.version;
+      const requestHash = createHash('sha256')
+        .update(JSON.stringify({ taskId, expectedVersion }))
+        .digest('hex');
+      const outcome = await runAuthorized(services, request, reply, async (client, actor) => {
+        const existing = await client.query<TaskRow>(selectTask, [taskId]);
+        const task = existing.rows[0];
+        if (!task) return reply.code(404).send({ error: 'task_not_found' });
+        const role = await roleInWorkspace(client, actor, task.workspace_id);
+        const decision = workspacePolicy.authorize({
+          actor,
+          action: 'task:cancel',
+          workspaceId: task.workspace_id,
+          membership: role ? { workspaceId: task.workspace_id, role, status: 'ACTIVE' } : null,
+        });
+        if (!decision.allowed) return denied(reply, decision.reason);
+        const claim = await claimIdempotency(
+          client,
+          task.workspace_id,
+          'task:cancel',
+          idempotencyKey,
+          requestHash,
+        );
+        if (claim.kind === 'conflict')
+          return reply.code(409).send({ error: 'idempotency_key_conflict' });
+        if (claim.kind === 'replay') {
+          if (claim.resultRef !== task.id) throw new Error('Idempotency Task mismatch');
+          return {
+            taskId: task.id,
+            runId: task.current_run_id,
+            status: task.status,
+            version: Number(task.version),
+          };
+        }
+        const canceled = await client.query<{
+          result_code: string;
+          run_id: string | null;
+          task_version: string | null;
+        }>('SELECT * FROM ayra.cancel_task_attempt($1, $2)', [task.id, expectedVersion]);
+        const result = canceled.rows[0];
+        if (result?.result_code !== 'CANCELED' || !result.task_version)
+          throw new TransactionalConflictError('Task cannot be canceled at the expected version');
+        await finishIdempotency(client, claim.recordId, task.id);
+        return {
+          taskId: task.id,
+          runId: result.run_id,
+          status: 'CANCELED',
+          version: Number(result.task_version),
+        };
+      });
+      if (reply.sent) return reply;
+      return reply.code(200).send(outcome);
+    },
+  );
+
   app.get<{ Querystring: { workspaceId: string; projectId?: string } }>(
     '/v1/tasks',
     {

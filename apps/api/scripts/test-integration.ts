@@ -1382,6 +1382,60 @@ try {
     ).statusCode === 200,
     'Second Project restore failed',
   );
+  const cancelDraft = await call(
+    'integration-alice',
+    'POST',
+    '/v1/tasks',
+    { workspaceId: alpha, title: 'Cancel draft', goal: 'Stop before execution', type: 'WORK' },
+    { 'idempotency-key': randomUUID() },
+  );
+  const cancelDraftId = expectUuid(cancelDraft.json().id);
+  const cancelDraftPath = `/v1/tasks/${cancelDraftId}/cancel`;
+  const cancelDraftKey = randomUUID();
+  check(
+    (
+      await call(
+        'integration-bob',
+        'POST',
+        cancelDraftPath,
+        { version: 1 },
+        {
+          'idempotency-key': cancelDraftKey,
+        },
+      )
+    ).statusCode === 404,
+    'Suspended member canceled a Draft Task',
+  );
+  const canceledDraft = await call(
+    'integration-alice',
+    'POST',
+    cancelDraftPath,
+    { version: 1 },
+    {
+      'idempotency-key': cancelDraftKey,
+    },
+  );
+  check(
+    canceledDraft.statusCode === 200 &&
+      canceledDraft.json().status === 'CANCELED' &&
+      canceledDraft.json().runId === null &&
+      canceledDraft.json().version === 2,
+    'Draft Task did not cancel without creating a Run',
+  );
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        cancelDraftPath,
+        { version: 1 },
+        {
+          'idempotency-key': cancelDraftKey,
+        },
+      )
+    ).json().version === 2,
+    'Draft cancellation replay did not preserve the canonical result',
+  );
   const startDraft = await call(
     'integration-alice',
     'POST',
@@ -1648,6 +1702,60 @@ try {
       `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${startTaskId}' AND event_type = 'task.status_changed.v1';`,
     ) === '6',
     'Worker stage changes lost or duplicated transactional Task events',
+  );
+  const cancelQueuedDraft = await call(
+    'integration-alice',
+    'POST',
+    '/v1/tasks',
+    { workspaceId: alpha, title: 'Cancel queued', goal: 'Stop before dispatch', type: 'WORK' },
+    { 'idempotency-key': randomUUID() },
+  );
+  const cancelQueuedId = expectUuid(cancelQueuedDraft.json().id);
+  const cancelQueuedStart = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${cancelQueuedId}/start`,
+    { version: 1 },
+    { 'idempotency-key': randomUUID() },
+  );
+  const cancelQueuedRunId = expectUuid(cancelQueuedStart.json().runId);
+  const canceledQueued = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${cancelQueuedId}/cancel`,
+    { version: 2 },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(
+    canceledQueued.statusCode === 200 &&
+      canceledQueued.json().status === 'CANCELED' &&
+      canceledQueued.json().runId === cancelQueuedRunId &&
+      canceledQueued.json().version === 3 &&
+      migrationSql(`SELECT status FROM runs WHERE id = '${cancelQueuedRunId}';`) === 'CANCELED',
+    'Queued cancellation did not atomically stop Task and Run',
+  );
+  const cancelDispatch = await dispatchTaskStartBatch(pool, async () => {
+    throw new Error('Canceled Run must not start a Workflow');
+  });
+  check(
+    cancelDispatch.started === 0 && cancelDispatch.skipped >= 1 && cancelDispatch.failed === 0,
+    'Canceled queued Run was dispatched or stranded',
+  );
+  const staleCancelKey = randomUUID();
+  check(
+    (
+      await call(
+        'integration-alice',
+        'POST',
+        `/v1/tasks/${cancelQueuedId}/cancel`,
+        { version: 2 },
+        { 'idempotency-key': staleCancelKey },
+      )
+    ).statusCode === 409 &&
+      migrationSql(
+        `SELECT count(*) FROM idempotency_records WHERE workspace_id = '${alpha}' AND key = '${staleCancelKey}';`,
+      ) === '0',
+    'Rejected cancellation stranded an idempotency reservation',
   );
   check(
     (
