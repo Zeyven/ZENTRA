@@ -177,7 +177,7 @@ try {
   }
   for (const worker of workers) worker.kill('SIGKILL');
   await pool.end();
-  if (resultObjectKey)
+  if (resultObjectKey && process.env.AYRA_TEST_KEEP_RESULT_OBJECT !== '1')
     await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: resultObjectKey }));
   s3.destroy();
 }

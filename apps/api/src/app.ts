@@ -1,7 +1,6 @@
 import Fastify from 'fastify';
 import swagger from '@fastify/swagger';
-import type { IdentityProvider } from '@ayra/auth';
-import type { Pool } from 'pg';
+import type { Services } from './request-context';
 import { registerWorkspaceRoutes } from './workspaces';
 import { registerProjectRoutes } from './projects';
 import { registerTaskRoutes } from './tasks';
@@ -9,9 +8,7 @@ import { registerConversationRoutes } from './conversations';
 import { registerResourceRoutes } from './resources';
 import { registerArtifactRoutes } from './artifacts';
 import { registerTaskEventStream } from './task-event-stream';
-export async function createApp(
-  services: { identity?: IdentityProvider; pool?: Pool; taskExecutionEnabled?: boolean } = {},
-) {
+export async function createApp(services: Services = {}) {
   const app = Fastify({
     logger: {
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],

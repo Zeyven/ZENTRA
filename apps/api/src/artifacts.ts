@@ -1,6 +1,8 @@
 import { workspacePolicy } from '@ayra/auth';
 import type { ArtifactId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
 import { createHash } from 'node:crypto';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { PoolClient } from 'pg';
 import { roleInWorkspace } from './membership';
@@ -16,6 +18,10 @@ type ArtifactRow = {
   title: string;
   version: string;
   deleted_at: Date | null;
+};
+type ResultArtifactRow = ArtifactRow & {
+  object_ref: string;
+  provenance: { kind?: string };
 };
 const fields = 'id, workspace_id, task_id, run_id, title, version, deleted_at';
 const uuidParam = {
@@ -171,5 +177,42 @@ export function registerArtifactRoutes(app: FastifyInstance, services: Services)
         if (!decision.allowed) return denied(reply, decision.reason);
         return dto(artifact);
       }),
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/v1/artifacts/:id/access',
+    { schema: { params: uuidParam } },
+    async (request, reply) => {
+      const access = services.artifactAccess;
+      if (!access) return reply.code(503).send({ error: 'artifact_access_unavailable' });
+      const artifact = await runAuthorized(services, request, reply, async (client, actor) => {
+        const result = await client.query<ResultArtifactRow>(
+          `SELECT ${fields}, object_ref, provenance FROM artifacts WHERE id = $1 AND deleted_at IS NULL`,
+          [request.params.id],
+        );
+        const row = result.rows[0];
+        if (!row) return reply.code(404).send({ error: 'artifact_not_found' });
+        const role = await roleInWorkspace(client, actor, row.workspace_id);
+        const decision = workspacePolicy.authorize({
+          actor,
+          action: 'artifact:read',
+          workspaceId: row.workspace_id,
+          membership: role ? { workspaceId: row.workspace_id, role, status: 'ACTIVE' } : null,
+        });
+        if (!decision.allowed) return denied(reply, decision.reason);
+        const expectedRef = `s3://${access.bucket}/workspaces/${row.workspace_id}/tasks/${row.task_id}/runs/${row.run_id}/result.txt`;
+        if (row.provenance?.kind !== 'RUN_RESULT' || row.object_ref !== expectedRef)
+          return reply.code(404).send({ error: 'artifact_not_found' });
+        return { key: expectedRef.slice(`s3://${access.bucket}/`.length) };
+      });
+      if (reply.sent) return reply;
+      const url = await getSignedUrl(
+        access.client,
+        new GetObjectCommand({ Bucket: access.bucket, Key: artifact.key }),
+        { expiresIn: 60 },
+      );
+      reply.header('Cache-Control', 'no-store');
+      return { url, expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    },
   );
 }

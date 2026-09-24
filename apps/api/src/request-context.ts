@@ -3,11 +3,13 @@ import type { UserId } from '@ayra/domain';
 import { createHash } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
+import type { S3Client } from '@aws-sdk/client-s3';
 
 export interface Services {
   identity?: IdentityProvider;
   pool?: Pool;
   taskExecutionEnabled?: boolean;
+  artifactAccess?: { client: S3Client; bucket: string };
 }
 
 export type AuthorizedWork<T> = (

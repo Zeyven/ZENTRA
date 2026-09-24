@@ -20,6 +20,9 @@ describe('server configuration', () => {
   });
   it('fails fast for missing required configuration', () => {
     expect(() => parseServerConfig({})).toThrow('Invalid server configuration');
+    expect(() => parseServerConfig({ ...env, OBJECT_STORE_ACCESS_KEY_ID: 'partial' })).toThrow(
+      'OBJECT_STORE_ACCESS_KEY_ID',
+    );
   });
   it.each(['migration_role', 'postgres', 'readonly_ops_role'])(
     'rejects privileged or wrong database role %s',

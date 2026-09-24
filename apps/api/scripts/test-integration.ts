@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createClerkIdentityProvider } from '@ayra/auth';
 import type { ApprovalId, ArtifactId, RunId, TaskId, UserId, WorkspaceId } from '@ayra/domain';
 import { createApp } from '../src/app';
@@ -22,6 +23,18 @@ const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 20
 const identity = createClerkIdentityProvider({
   jwtKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
   authorizedParties: ['http://localhost:3000'],
+});
+const accessKeyId = process.env.MINIO_ROOT_USER;
+const secretAccessKey = process.env.MINIO_ROOT_PASSWORD;
+const endpoint = process.env.OBJECT_STORE_ENDPOINT;
+const bucket = process.env.OBJECT_STORE_BUCKET;
+if (!accessKeyId || !secretAccessKey || !endpoint || !bucket)
+  throw new Error('Local object store configuration is required');
+const s3 = new S3Client({
+  region: 'us-east-1',
+  endpoint,
+  forcePathStyle: true,
+  credentials: { accessKeyId, secretAccessKey },
 });
 const now = Math.floor(Date.now() / 1000);
 function signedToken(label: string) {
@@ -47,8 +60,14 @@ const tokens = Object.fromEntries(
     signedToken(label),
   ]),
 );
-const app = await createApp({ identity, pool, taskExecutionEnabled: true });
+const app = await createApp({
+  identity,
+  pool,
+  taskExecutionEnabled: true,
+  artifactAccess: { client: s3, bucket },
+});
 let cleanupFailed = false;
+let testResultKey: string | undefined;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function expectUuid(value: unknown): string {
   if (typeof value !== 'string' || !uuid.test(value)) throw new Error('Expected AYRA UUID');
@@ -1403,6 +1422,7 @@ try {
     { 'idempotency-key': startKey },
   );
   const startedRunId = expectUuid(startResponse.json().runId);
+  testResultKey = `workspaces/${alpha}/tasks/${startTaskId}/runs/${startedRunId}/result.txt`;
   check(
     startResponse.statusCode === 202 &&
       startResponse.json().status === 'QUEUED' &&
@@ -1564,6 +1584,7 @@ try {
         ...process.env,
         AYRA_TEST_RUN_ID: startedRunId,
         AYRA_TEST_ACTOR_ID: expectUuid(users[0]),
+        AYRA_TEST_KEEP_RESULT_OBJECT: '1',
       },
       encoding: 'utf8',
       timeout: 90000,
@@ -1586,6 +1607,32 @@ try {
       `SELECT count(*) FROM artifacts WHERE run_id = '${startedRunId}' AND provenance->>'kind' = 'RUN_RESULT';`,
     ) === '1',
     'Completed Task did not create exactly one Task-backed result Artifact',
+  );
+  const resultArtifactId = expectUuid(
+    migrationSql(
+      `SELECT id FROM artifacts WHERE run_id = '${startedRunId}' AND provenance->>'kind' = 'RUN_RESULT';`,
+    ),
+  );
+  const signedAccess = await call(
+    'integration-alice',
+    'GET',
+    `/v1/artifacts/${resultArtifactId}/access`,
+  );
+  check(signedAccess.statusCode === 200, 'Task result Artifact did not provide signed access');
+  check(
+    signedAccess.headers['cache-control'] === 'no-store',
+    'Signed access response was cacheable',
+  );
+  const resultDownload = await fetch(signedAccess.json().url);
+  const resultText = await resultDownload.text();
+  check(
+    resultDownload.ok && resultText.startsWith('output: plan: understood:'),
+    `Signed result URL did not download canonical bytes (${resultDownload.status}: ${resultText.slice(0, 240)})`,
+  );
+  check(
+    (await call('integration-bob', 'GET', `/v1/artifacts/${resultArtifactId}/access`))
+      .statusCode === 404,
+    'Suspended member received signed Artifact access',
   );
   check(
     (
@@ -1618,6 +1665,14 @@ try {
 } finally {
   await app.close();
   await pool.end();
+  if (testResultKey) {
+    try {
+      await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: testResultKey }));
+    } catch {
+      cleanupFailed = true;
+    }
+  }
+  s3.destroy();
   if (users.length) {
     const ids = users
       .map(expectUuid)
