@@ -1519,7 +1519,11 @@ try {
     ],
     {
       cwd: process.cwd(),
-      env: { ...process.env, AYRA_TEST_RUN_ID: startedRunId },
+      env: {
+        ...process.env,
+        AYRA_TEST_RUN_ID: startedRunId,
+        AYRA_TEST_ACTOR_ID: expectUuid(users[0]),
+      },
       encoding: 'utf8',
       timeout: 90000,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -1535,6 +1539,12 @@ try {
       completedTask.json().currentRunId === startedRunId &&
       migrationSql(`SELECT status FROM runs WHERE id = '${startedRunId}';`) === 'COMPLETED',
     'Temporal Workflow did not commit canonical Task and Run completion',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM artifacts WHERE run_id = '${startedRunId}' AND provenance->>'kind' = 'RUN_RESULT';`,
+    ) === '1',
+    'Completed Task did not create exactly one Task-backed result Artifact',
   );
   check(
     (

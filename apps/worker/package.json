@@ -11,6 +11,7 @@
     "test:temporal": "tsx scripts/test-durability.ts && tsx scripts/test-task-workflow.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1139.0",
     "@ayra/config": "workspace:*",
     "@temporalio/client": "1.24.0",
     "@temporalio/worker": "1.24.0",
