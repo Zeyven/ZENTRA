@@ -29,7 +29,7 @@ export type DispatchBatchResult = {
 /** One bounded Outbox pass. The injected starter owns the Temporal connection. */
 export async function dispatchTaskStartBatch(
   pool: Pool,
-  startWorkflow: (runId: string, workflowId: string) => Promise<void>,
+  startWorkflow: (runId: string, workflowId: string, initiallyPaused: boolean) => Promise<void>,
   limit = 10,
 ): Promise<DispatchBatchResult> {
   const claimed = await pool.query<StartClaim>('SELECT * FROM ayra.claim_task_start_events($1)', [
@@ -48,9 +48,13 @@ export async function dispatchTaskStartBatch(
         'SELECT ayra.task_start_dispatch_state($1, $2) AS state',
         [event.task_id, event.run_id],
       );
-      if (state.rows[0]?.state === 'READY') {
+      if (state.rows[0]?.state === 'READY' || state.rows[0]?.state === 'PAUSED') {
         try {
-          await startWorkflow(event.run_id, workflowIdForRun(event.run_id));
+          await startWorkflow(
+            event.run_id,
+            workflowIdForRun(event.run_id),
+            state.rows[0].state === 'PAUSED',
+          );
           result.started += 1;
         } catch (error) {
           if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;

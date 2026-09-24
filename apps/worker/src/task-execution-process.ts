@@ -5,6 +5,7 @@ import type { Pool } from 'pg';
 import type { TaskActivities } from './task-activity-contract';
 import { dispatchTaskStartBatch } from './outbox-dispatcher';
 import { dispatchTaskCancelBatch, signalTaskCancellation } from './cancel-dispatcher';
+import { dispatchTaskControlBatch, signalTaskControl } from './control-dispatcher';
 
 type TaskExecutionOptions = {
   pool: Pool;
@@ -41,16 +42,29 @@ export async function runTaskExecutionProcess(options: TaskExecutionOptions): Pr
     });
     options.onReady?.();
     while (!options.signal.aborted && !stopped.signal.aborted) {
-      await dispatchTaskStartBatch(options.pool, (runId, workflowId) =>
-        client.workflow
-          .start('taskWorkflow', {
-            args: [runId],
-            workflowId,
-            taskQueue: options.taskQueue,
-          })
-          .then(() => undefined),
+      await dispatchTaskStartBatch(options.pool, (runId, workflowId, initiallyPaused) =>
+        initiallyPaused
+          ? client.workflow
+              .signalWithStart('taskWorkflow', {
+                args: [runId],
+                workflowId,
+                taskQueue: options.taskQueue,
+                signal: 'pauseTask',
+                signalArgs: [],
+              })
+              .then(() => undefined)
+          : client.workflow
+              .start('taskWorkflow', {
+                args: [runId],
+                workflowId,
+                taskQueue: options.taskQueue,
+              })
+              .then(() => undefined),
       );
       await dispatchTaskCancelBatch(options.pool, (runId) => signalTaskCancellation(client, runId));
+      await dispatchTaskControlBatch(options.pool, (runId, action) =>
+        signalTaskControl(client, runId, action),
+      );
       if (workerFailure) throw workerFailure;
       await new Promise<void>((resolve) => {
         const done = () => {

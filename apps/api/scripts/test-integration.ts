@@ -12,6 +12,7 @@ import { createRunAttempt, readRunAttempt } from '../src/runs';
 import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
 import { dispatchTaskStartBatch, workflowIdForRun } from '../../worker/src/outbox-dispatcher';
 import { dispatchTaskCancelBatch } from '../../worker/src/cancel-dispatcher';
+import { dispatchTaskControlBatch } from '../../worker/src/control-dispatcher';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -1647,6 +1648,20 @@ try {
     { 'idempotency-key': randomUUID() },
   );
   const activeCancelRunId = expectUuid(activeCancelStart.json().runId);
+  const pauseMain = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${startTaskId}/pause`,
+    { version: 2 },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(
+    pauseMain.statusCode === 200 &&
+      pauseMain.json().status === 'PAUSED' &&
+      pauseMain.json().runId === startedRunId &&
+      pauseMain.json().version === 3,
+    'Queued Task was not paused canonically before dispatch',
+  );
   const m3WorkflowTest = spawnSync(
     process.execPath,
     [
@@ -1659,6 +1674,7 @@ try {
       env: {
         ...process.env,
         AYRA_TEST_RUN_ID: startedRunId,
+        AYRA_TEST_TASK_ID: startTaskId,
         AYRA_TEST_CANCEL_TASK_ID: activeCancelTaskId,
         AYRA_TEST_CANCEL_RUN_ID: activeCancelRunId,
         AYRA_TEST_ACTOR_ID: expectUuid(users[0]),
@@ -1682,6 +1698,12 @@ try {
         `SELECT count(*) FROM outbox_events WHERE id = '${expectUuid(firstClaim.event_id)}' AND published_at IS NOT NULL;`,
       ) === '1',
     'Temporal Workflow did not commit canonical Task and Run completion',
+  );
+  check(
+    migrationSql(
+      `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${startTaskId}' AND event_type IN ('task.paused.v1', 'task.resumed.v1') AND published_at IS NOT NULL;`,
+    ) === '2',
+    'Worker loop did not deliver canonical pause and resume signals',
   );
   const activeCanceledTask = await call(
     'integration-alice',
@@ -1760,18 +1782,46 @@ try {
     { 'idempotency-key': randomUUID() },
   );
   const cancelQueuedRunId = expectUuid(cancelQueuedStart.json().runId);
+  const queuedPause = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${cancelQueuedId}/pause`,
+    { version: 2 },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(
+    queuedPause.statusCode === 200 &&
+      queuedPause.json().status === 'PAUSED' &&
+      queuedPause.json().version === 3 &&
+      migrationSql(`SELECT status FROM runs WHERE id = '${cancelQueuedRunId}';`) === 'PAUSED',
+    'Queued Task pause did not update Task and Run together',
+  );
+  const queuedResume = await call(
+    'integration-alice',
+    'POST',
+    `/v1/tasks/${cancelQueuedId}/resume`,
+    { version: 3 },
+    { 'idempotency-key': randomUUID() },
+  );
+  check(
+    queuedResume.statusCode === 200 &&
+      queuedResume.json().status === 'QUEUED' &&
+      queuedResume.json().version === 4 &&
+      migrationSql(`SELECT status FROM runs WHERE id = '${cancelQueuedRunId}';`) === 'PENDING',
+    'Queued Task resume did not restore its recorded stage',
+  );
   const canceledQueued = await call(
     'integration-alice',
     'POST',
     `/v1/tasks/${cancelQueuedId}/cancel`,
-    { version: 2 },
+    { version: 4 },
     { 'idempotency-key': randomUUID() },
   );
   check(
     canceledQueued.statusCode === 200 &&
       canceledQueued.json().status === 'CANCELED' &&
       canceledQueued.json().runId === cancelQueuedRunId &&
-      canceledQueued.json().version === 3 &&
+      canceledQueued.json().version === 5 &&
       migrationSql(`SELECT status FROM runs WHERE id = '${cancelQueuedRunId}';`) === 'CANCELED',
     'Queued cancellation did not atomically stop Task and Run',
   );
@@ -1788,6 +1838,13 @@ try {
   check(
     cancelDispatch.started === 0 && cancelDispatch.skipped >= 1 && cancelDispatch.failed === 0,
     'Canceled queued Run was dispatched or stranded',
+  );
+  const staleControls = await dispatchTaskControlBatch(pool, async () => {
+    throw new Error('Canceled Run must not receive pause/resume signals');
+  });
+  check(
+    staleControls.skipped >= 2 && staleControls.signaled === 0 && staleControls.failed === 0,
+    'Superseded Task control events were not safely settled',
   );
   const cancelEventId = expectUuid(
     migrationSql(
@@ -1819,7 +1876,7 @@ try {
         'integration-alice',
         'POST',
         `/v1/tasks/${cancelQueuedId}/cancel`,
-        { version: 2 },
+        { version: 4 },
         { 'idempotency-key': staleCancelKey },
       )
     ).statusCode === 409 &&

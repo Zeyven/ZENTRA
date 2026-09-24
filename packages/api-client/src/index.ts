@@ -129,6 +129,20 @@ export function createAyraClient(options: AyraClientOptions) {
         { method: 'POST', body: { version }, idempotencyKey },
       );
     },
+    pauseTask: (taskId: string, version: number, idempotencyKey: string) => {
+      if (!idempotencyKey) throw new Error('Task pause requires an idempotency key');
+      return request<{ taskId: string; runId: string; status: TaskStatus; version: number }>(
+        `/v1/tasks/${encodeURIComponent(taskId)}/pause`,
+        { method: 'POST', body: { version }, idempotencyKey },
+      );
+    },
+    resumeTask: (taskId: string, version: number, idempotencyKey: string) => {
+      if (!idempotencyKey) throw new Error('Task resume requires an idempotency key');
+      return request<{ taskId: string; runId: string; status: TaskStatus; version: number }>(
+        `/v1/tasks/${encodeURIComponent(taskId)}/resume`,
+        { method: 'POST', body: { version }, idempotencyKey },
+      );
+    },
     getTaskEvents: (taskId: string, afterVersion = 0, signal?: AbortSignal) =>
       request<{ taskId: string; events: TaskEvent[]; nextAfterVersion: number }>(
         `/v1/tasks/${encodeURIComponent(taskId)}/events?${new URLSearchParams({ afterVersion: String(afterVersion) })}`,

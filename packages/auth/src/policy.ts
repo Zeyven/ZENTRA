@@ -31,6 +31,8 @@ export type PolicyAction =
   | 'task:create'
   | 'task:start'
   | 'task:cancel'
+  | 'task:pause'
+  | 'task:resume'
   | 'task:read'
   | 'task:update'
   | 'task:delete';
@@ -78,6 +80,8 @@ export const workspacePolicy: PolicyEngine = {
         action === 'task:create' ||
         action === 'task:start' ||
         action === 'task:cancel' ||
+        action === 'task:pause' ||
+        action === 'task:resume' ||
         action === 'task:update' ||
         action === 'task:delete') &&
       membership.role !== 'OWNER'

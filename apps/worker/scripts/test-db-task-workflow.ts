@@ -7,11 +7,12 @@ import pg from 'pg';
 import { workflowIdForRun } from '../src/outbox-dispatcher';
 
 const runId = process.env.AYRA_TEST_RUN_ID;
+const taskId = process.env.AYRA_TEST_TASK_ID;
 const cancelRunId = process.env.AYRA_TEST_CANCEL_RUN_ID;
 const cancelTaskId = process.env.AYRA_TEST_CANCEL_TASK_ID;
 const actorId = process.env.AYRA_TEST_ACTOR_ID;
 const databaseUrl = process.env.DATABASE_URL;
-if (!runId || !cancelRunId || !cancelTaskId || !actorId || !databaseUrl)
+if (!runId || !taskId || !cancelRunId || !cancelTaskId || !actorId || !databaseUrl)
   throw new Error('M3 integration Runs, actor and database are required');
 const bucket = process.env.OBJECT_STORE_BUCKET;
 const endpoint = process.env.OBJECT_STORE_ENDPOINT;
@@ -99,6 +100,47 @@ async function waitForWorkflowStart(client: Client, targetWorkflowId = workflowI
   throw new Error('Worker loop did not dispatch the queued Task Workflow');
 }
 
+async function waitForStage(client: Client, targetWorkflowId: string, expected: string) {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    try {
+      if (
+        (await client.workflow.getHandle(targetWorkflowId).query<string>('taskStage')) === expected
+      )
+        return;
+    } catch {
+      // The Workflow may still be starting.
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+  }
+  throw new Error(`Task Workflow did not reach ${expected}`);
+}
+
+async function controlTask(targetTaskId: string, functionName: string, expected: string) {
+  const database = await pool.connect();
+  try {
+    await database.query('BEGIN');
+    await database.query("SELECT set_config('ayra.actor_user_id', $1, true)", [actorId]);
+    const current = await database.query<{ version: string }>(
+      'SELECT version FROM tasks WHERE id = $1',
+      [targetTaskId],
+    );
+    const version = Number(current.rows[0]?.version);
+    if (!Number.isSafeInteger(version)) throw new Error('Controlled Task is missing');
+    const changed = await database.query<{ result_code: string; run_id: string }>(
+      `SELECT * FROM ayra.${functionName}($1, $2)`,
+      [targetTaskId, version],
+    );
+    if (changed.rows[0]?.result_code !== expected)
+      throw new Error(`Task ${functionName} transaction failed`);
+    await database.query('COMMIT');
+    return changed.rows[0].run_id;
+  } finally {
+    await database.query('ROLLBACK');
+    database.release();
+  }
+}
+
 try {
   const firstWorker = await startWorker();
   activeConnection = await Connection.connect({
@@ -108,34 +150,11 @@ try {
     connection: activeConnection,
     namespace: process.env.TEMPORAL_NAMESPACE ?? 'ayra-development',
   });
-  const [mainHandle, cancelHandle] = await Promise.all([
-    waitForWorkflowStart(client),
-    waitForWorkflowStart(client, cancelWorkflowId),
-  ]);
-  await Promise.all([mainHandle.signal('pauseTask'), cancelHandle.signal('pauseTask')]);
+  const cancelHandle = await waitForWorkflowStart(client, cancelWorkflowId);
   await waitForPaused(client);
-  await waitForPaused(client, cancelWorkflowId);
-  const cancelDb = await pool.connect();
-  try {
-    await cancelDb.query('BEGIN');
-    await cancelDb.query("SELECT set_config('ayra.actor_user_id', $1, true)", [actorId]);
-    const current = await cancelDb.query<{ version: string }>(
-      'SELECT version FROM tasks WHERE id = $1',
-      [cancelTaskId],
-    );
-    const version = Number(current.rows[0]?.version);
-    if (!Number.isSafeInteger(version)) throw new Error('Active cancellation Task is missing');
-    const canceled = await cancelDb.query<{ result_code: string; run_id: string }>(
-      'SELECT * FROM ayra.cancel_task_attempt($1, $2)',
-      [cancelTaskId, version],
-    );
-    if (canceled.rows[0]?.result_code !== 'CANCELED' || canceled.rows[0].run_id !== cancelRunId)
-      throw new Error('Active Task cancellation transaction failed');
-    await cancelDb.query('COMMIT');
-  } finally {
-    await cancelDb.query('ROLLBACK');
-    cancelDb.release();
-  }
+  await waitForStage(client, cancelWorkflowId, 'UNDERSTANDING');
+  if ((await controlTask(cancelTaskId, 'cancel_task_attempt', 'CANCELED')) !== cancelRunId)
+    throw new Error('Active cancellation changed Run identity');
   const canceledWorkflow = await cancelHandle.result();
   if (canceledWorkflow?.status !== 'CANCELED')
     throw new Error('Worker loop did not deliver active Task cancellation');
@@ -156,7 +175,8 @@ try {
   });
   await waitForPaused(client);
   const handle = client.workflow.getHandle(workflowId);
-  await handle.signal('resumeTask');
+  if ((await controlTask(taskId, 'resume_task_attempt', 'RESUMED')) !== runId)
+    throw new Error('Task resume changed Run identity');
   const result = await handle.result();
   if (result?.runId !== runId || result.status !== 'COMPLETED')
     throw new Error(`DB-backed Task Workflow returned ${JSON.stringify(result)}`);

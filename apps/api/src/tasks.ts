@@ -276,6 +276,90 @@ export function registerTaskRoutes(app: FastifyInstance, services: Services) {
     },
   );
 
+  for (const operation of ['pause', 'resume'] as const) {
+    app.post<{ Params: { id: string }; Body: { version: number } }>(
+      `/v1/tasks/:id/${operation}`,
+      {
+        schema: {
+          params: uuidParam,
+          body: {
+            type: 'object',
+            required: ['version'],
+            additionalProperties: false,
+            properties: { version: { type: 'integer', minimum: 1 } },
+          },
+        },
+      },
+      async (request, reply) => {
+        if (!services.taskExecutionEnabled)
+          return reply.code(503).send({ error: 'task_execution_unavailable' });
+        const idempotencyKey = readIdempotencyKey(request.headers['idempotency-key']);
+        if (!idempotencyKey) return reply.code(400).send({ error: 'idempotency_key_required' });
+        const taskId = request.params.id;
+        const expectedVersion = request.body.version;
+        const requestHash = createHash('sha256')
+          .update(JSON.stringify({ taskId, expectedVersion }))
+          .digest('hex');
+        const outcome = await runAuthorized(services, request, reply, async (client, actor) => {
+          const existing = await client.query<TaskRow>(selectTask, [taskId]);
+          const task = existing.rows[0];
+          if (!task) return reply.code(404).send({ error: 'task_not_found' });
+          const role = await roleInWorkspace(client, actor, task.workspace_id);
+          const decision = workspacePolicy.authorize({
+            actor,
+            action: operation === 'pause' ? 'task:pause' : 'task:resume',
+            workspaceId: task.workspace_id,
+            membership: role ? { workspaceId: task.workspace_id, role, status: 'ACTIVE' } : null,
+          });
+          if (!decision.allowed) return denied(reply, decision.reason);
+          const claim = await claimIdempotency(
+            client,
+            task.workspace_id,
+            `task:${operation}`,
+            idempotencyKey,
+            requestHash,
+          );
+          if (claim.kind === 'conflict')
+            return reply.code(409).send({ error: 'idempotency_key_conflict' });
+          if (claim.kind === 'replay') {
+            if (claim.resultRef !== task.id) throw new Error('Idempotency Task mismatch');
+            return {
+              taskId: task.id,
+              runId: task.current_run_id,
+              status: task.status,
+              version: Number(task.version),
+            };
+          }
+          const functionName = operation === 'pause' ? 'pause_task_attempt' : 'resume_task_attempt';
+          const changed = await client.query<{
+            result_code: string;
+            run_id: string | null;
+            task_version: string | null;
+          }>(`SELECT * FROM ayra.${functionName}($1, $2)`, [task.id, expectedVersion]);
+          const result = changed.rows[0];
+          if (
+            result?.result_code !== (operation === 'pause' ? 'PAUSED' : 'RESUMED') ||
+            !result.run_id
+          )
+            throw new TransactionalConflictError(
+              'Task cannot change control state at the expected version',
+            );
+          await finishIdempotency(client, claim.recordId, task.id);
+          const current = await client.query<TaskRow>(selectTask, [task.id]);
+          if (!current.rows[0]) throw new Error('Controlled Task disappeared');
+          return {
+            taskId: task.id,
+            runId: result.run_id,
+            status: current.rows[0].status,
+            version: Number(current.rows[0].version),
+          };
+        });
+        if (reply.sent) return reply;
+        return reply.code(200).send(outcome);
+      },
+    );
+  }
+
   app.get<{ Querystring: { workspaceId: string; projectId?: string } }>(
     '/v1/tasks',
     {
