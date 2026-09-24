@@ -603,6 +603,38 @@ try {
     (await call('integration-bob', 'GET', `/v1/tasks/${taskId}/events`)).statusCode === 404,
     'Cross-tenant Task events were exposed',
   );
+  const listenUrl = await app.listen({ host: '127.0.0.1', port: 0 });
+  async function receiveSseEvent(afterVersion: number) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(`${listenUrl}/v1/tasks/${taskId}/events/stream`, {
+        headers: {
+          authorization: `Bearer ${tokens['integration-alice']}`,
+          'last-event-id': String(afterVersion),
+        },
+        signal: controller.signal,
+      });
+      check(response.status === 200, 'Task SSE connection was rejected');
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Task SSE response has no body');
+      let received = '';
+      while (!received.includes('id: 2\n')) {
+        const chunk = await reader.read();
+        if (chunk.done) throw new Error('Task SSE closed before the expected event');
+        received += new TextDecoder().decode(chunk.value);
+      }
+      check(
+        received.includes('event: task.updated.v1\n'),
+        'Task SSE emitted the wrong canonical event',
+      );
+    } finally {
+      controller.abort();
+      clearTimeout(timeout);
+    }
+  }
+  await receiveSseEvent(1);
+  await receiveSseEvent(1);
   check(
     migrationSql("SELECT has_table_privilege('application_role', 'outbox_events', 'SELECT');") ===
       'f',
@@ -689,9 +721,37 @@ try {
     ).statusCode === 403,
     'MEMBER archived Project',
   );
+  const suspendedStreamController = new AbortController();
+  const suspendedStream = await fetch(
+    `${listenUrl}/v1/tasks/${taskId}/events/stream?afterVersion=2`,
+    {
+      headers: { authorization: `Bearer ${tokens['integration-bob']}` },
+      signal: suspendedStreamController.signal,
+    },
+  );
+  check(suspendedStream.status === 200, 'Active member could not open Task SSE');
+  const suspendedReader = suspendedStream.body?.getReader();
+  if (!suspendedReader) throw new Error('Member Task SSE response has no body');
+  await suspendedReader.read();
   migrationSql(
     `UPDATE workspace_memberships SET status = 'SUSPENDED' WHERE workspace_id = '${alpha}' AND user_id = '${bobId}';`,
   );
+  let streamCloseTimeout: NodeJS.Timeout | undefined;
+  try {
+    const closedAfterSuspension = await Promise.race([
+      suspendedReader.read(),
+      new Promise<never>((_, reject) => {
+        streamCloseTimeout = setTimeout(
+          () => reject(new Error('Task SSE stayed open after membership suspension')),
+          4000,
+        );
+      }),
+    ]);
+    check(closedAfterSuspension.done === true, 'Task SSE continued after membership suspension');
+  } finally {
+    clearTimeout(streamCloseTimeout);
+    suspendedStreamController.abort();
+  }
   check(
     (await call('integration-bob', 'GET', `/v1/projects/${projectId}`)).statusCode === 404,
     'Suspended member retained Project access',

@@ -51,6 +51,24 @@ async function withActor<T>(pool: Pool, session: VerifiedSession, work: Authoriz
   }
 }
 
+/** Revalidates the bearer and database session for every long-lived stream poll. */
+export async function runStreamAuthorized<T>(
+  services: Services,
+  authorization: string | undefined,
+  work: AuthorizedWork<T>,
+): Promise<{ ok: true; value: T } | { ok: false; status: 401 | 503 }> {
+  if (!services.identity || !services.pool) return { ok: false, status: 503 };
+  const match = /^Bearer ([^\s]+)$/.exec(authorization ?? '');
+  if (!match?.[1]) return { ok: false, status: 401 };
+  const session = await services.identity.verifySession(match[1]);
+  if (!session) return { ok: false, status: 401 };
+  try {
+    return { ok: true, value: await withActor(services.pool, session, work) };
+  } catch (error) {
+    return { ok: false, status: error instanceof RevokedSessionError ? 401 : 503 };
+  }
+}
+
 export async function runAuthorized<T>(
   services: Services,
   request: FastifyRequest,

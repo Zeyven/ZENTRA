@@ -8,6 +8,7 @@ import { registerTaskRoutes } from './tasks';
 import { registerConversationRoutes } from './conversations';
 import { registerResourceRoutes } from './resources';
 import { registerArtifactRoutes } from './artifacts';
+import { registerTaskEventStream } from './task-event-stream';
 export async function createApp(services: { identity?: IdentityProvider; pool?: Pool } = {}) {
   const app = Fastify({
     logger: {
@@ -46,6 +47,7 @@ export async function createApp(services: { identity?: IdentityProvider; pool?: 
   registerWorkspaceRoutes(app, services);
   registerProjectRoutes(app, services);
   registerTaskRoutes(app, services);
+  registerTaskEventStream(app, services);
   registerConversationRoutes(app, services);
   registerResourceRoutes(app, services);
   registerArtifactRoutes(app, services);
