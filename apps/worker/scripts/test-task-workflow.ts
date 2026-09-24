@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { workflowIdForRun } from '../src/outbox-dispatcher';
+import { signalTaskCancellation } from '../src/cancel-dispatcher';
 
 const envPath = resolve('.env.local');
 if (existsSync(envPath)) loadEnvFile(envPath);
@@ -101,10 +102,13 @@ try {
   });
   await cancelHandle.signal('pauseTask');
   await waitForStage(cancelHandle, 'PAUSED');
-  await cancelHandle.signal('cancelTask');
+  if ((await signalTaskCancellation(client, canceledRunId)) !== 'SIGNALED')
+    throw new Error('Existing Task Workflow was not signaled for cancellation');
   const canceled = await cancelHandle.result();
   if (canceled?.runId !== canceledRunId || canceled.status !== 'CANCELED')
     throw new Error(`Task Workflow cancel returned ${JSON.stringify(canceled)}`);
+  if ((await signalTaskCancellation(client, randomUUID())) !== 'NOT_FOUND')
+    throw new Error('Missing Task Workflow was not recognized as absent');
   console.info('PASS: TaskWorkflow survived Worker SIGKILL, resumed, completed, and canceled.');
 } finally {
   for (const workflowId of workflowIds) {

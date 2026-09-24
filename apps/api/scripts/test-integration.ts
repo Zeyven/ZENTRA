@@ -11,6 +11,7 @@ import { createArtifactMetadata, softDeleteArtifactMetadata } from '../src/artif
 import { createRunAttempt, readRunAttempt } from '../src/runs';
 import { createApprovalRequest, readApprovalRequest } from '../src/approvals';
 import { dispatchTaskStartBatch, workflowIdForRun } from '../../worker/src/outbox-dispatcher';
+import { dispatchTaskCancelBatch } from '../../worker/src/cancel-dispatcher';
 
 loadEnvFile('.env.local');
 const databaseUrl = process.env.DATABASE_URL;
@@ -1734,12 +1735,42 @@ try {
       migrationSql(`SELECT status FROM runs WHERE id = '${cancelQueuedRunId}';`) === 'CANCELED',
     'Queued cancellation did not atomically stop Task and Run',
   );
+  const deferredCancel = await dispatchTaskCancelBatch(pool, async () => {
+    throw new Error('Cancellation signal cannot precede start reconciliation');
+  });
+  check(
+    deferredCancel.deferred >= 1 && deferredCancel.signaled === 0 && deferredCancel.failed === 0,
+    'Cancel Outbox did not wait for the pending start event',
+  );
   const cancelDispatch = await dispatchTaskStartBatch(pool, async () => {
     throw new Error('Canceled Run must not start a Workflow');
   });
   check(
     cancelDispatch.started === 0 && cancelDispatch.skipped >= 1 && cancelDispatch.failed === 0,
     'Canceled queued Run was dispatched or stranded',
+  );
+  const cancelEventId = expectUuid(
+    migrationSql(
+      `SELECT id FROM outbox_events WHERE aggregate_id = '${cancelQueuedId}' AND event_type = 'task.status_changed.v1' AND payload->>'status' = 'CANCELED';`,
+    ),
+  );
+  migrationSql(
+    `UPDATE outbox_events SET lease_until = now() - interval '1 second' WHERE id = '${cancelEventId}';`,
+  );
+  const deliveredCancel = await dispatchTaskCancelBatch(pool, async (runId, workflowId) => {
+    check(
+      runId === cancelQueuedRunId && workflowId === workflowIdForRun(runId),
+      'Cancel Outbox targeted the wrong Workflow',
+    );
+    return 'NOT_FOUND';
+  });
+  check(
+    deliveredCancel.absent === 1 &&
+      deliveredCancel.failed === 0 &&
+      migrationSql(
+        `SELECT count(*) FROM outbox_events WHERE id = '${cancelEventId}' AND published_at IS NOT NULL;`,
+      ) === '1',
+    'Canceled-before-start Run did not settle its cancel Outbox event',
   );
   const staleCancelKey = randomUUID();
   check(
