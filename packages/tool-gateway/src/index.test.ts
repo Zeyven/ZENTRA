@@ -85,7 +85,7 @@ describe('Tool Gateway authorization', () => {
     expect(consume).toHaveBeenCalledWith({
       approvalId: 'approval-a',
       workspaceId: 'workspace-a',
-      userId: 'user-a',
+      runOwnerId: 'user-a',
       taskId: 'task-a',
       runId: 'run-a',
       action: 'repo.push@1',

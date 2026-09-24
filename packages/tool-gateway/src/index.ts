@@ -26,7 +26,7 @@ export type AuthorizedToolCall = ToolCall & Readonly<{ identity: ToolIdentity }>
 export type ApprovalBinding = Readonly<{
   approvalId: string;
   workspaceId: string;
-  userId: string;
+  runOwnerId: string;
   taskId: string;
   runId: string;
   action: string;
@@ -159,7 +159,7 @@ export class ToolGateway {
         const consumed = await this.dependencies.approval.consume({
           approvalId: call.approvalId!,
           workspaceId: identity.workspaceId,
-          userId: identity.userId,
+          runOwnerId: identity.userId,
           taskId: identity.taskId,
           runId: identity.runId,
           action: `${tool.id}@${tool.version}`,

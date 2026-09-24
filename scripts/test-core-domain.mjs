@@ -347,6 +347,51 @@ try {
       ) === '1',
     'Approval replay duplicated the decision event',
   );
+  const consume = (actor, id, resourceRef, hash = 'b'.repeat(64), version = approvalStateVersion) =>
+    asActor(
+      actor,
+      `SELECT ayra.consume_approval('${id}','${run}','write','${resourceRef}','${hash}',${version})`,
+    );
+  assert(
+    consume(alice, approved, 'resource-approve') === 'INVALID',
+    'Approval was consumed before its Run became active',
+  );
+  query(
+    `BEGIN; SET LOCAL ayra.actor_user_id = '${alice}'; UPDATE runs SET status = 'RUNNING', version = version + 1 WHERE id = '${run}'; COMMIT;`,
+  );
+  assert(
+    consume(bob, approved, 'resource-approve') === 'INVALID' &&
+      consume(alice, approved, 'wrong-resource') === 'INVALID' &&
+      consume(alice, approved, 'resource-approve', 'c'.repeat(64)) === 'INVALID' &&
+      consume(alice, approved, 'resource-approve', 'b'.repeat(64), approvalStateVersion + 1) ===
+        'INVALID',
+    'Mismatched Approval binding was consumed',
+  );
+  assert(
+    consume(alice, approved, 'resource-approve') === 'CONSUMED' &&
+      consume(alice, approved, 'resource-approve') === 'INVALID' &&
+      query(
+        `SELECT count(*) FROM outbox_events WHERE aggregate_id = '${approved}' AND event_type = 'approval.consumed.v1'`,
+      ) === '1',
+    'Approval consumption was not single-use and audited',
+  );
+  const delegated = uuid(
+    asActor(
+      alice,
+      `INSERT INTO approvals(workspace_id,user_id,task_id,run_id,action,resource_ref,arguments_hash,state_version,expires_at) VALUES ('${alpha}','${bob}','${task}','${run}','write','resource-delegated','${'b'.repeat(64)}',${approvalStateVersion},now()+interval '1 hour') RETURNING id`,
+    ),
+  );
+  assert(
+    asActor(bob, `SELECT ayra.decide_approval('${delegated}',1,'APPROVED')`) === 'APPROVED',
+    'Active target member could not approve a request',
+  );
+  query(
+    `UPDATE workspace_memberships SET status = 'SUSPENDED' WHERE workspace_id = '${alpha}' AND user_id = '${bob}'`,
+  );
+  assert(
+    consume(alice, delegated, 'resource-delegated') === 'INVALID',
+    'Revoked approver retained authorization for external action',
+  );
   const rejected = requestDecision('reject');
   assert(
     asActor(alice, `SELECT ayra.decide_approval('${rejected}',1,'REJECTED')`) === 'REJECTED',
@@ -371,7 +416,7 @@ try {
     'Changed Task state did not invalidate Approval',
   );
   console.info(
-    'PASS: M2 invariants and M5 Approval target, state, expiry, replay, and event guards.',
+    'PASS: M2 invariants and M5 Approval decision, consumption, revocation, and event guards.',
   );
 } finally {
   if (workspaces.length) {
