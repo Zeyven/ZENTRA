@@ -5,6 +5,7 @@ dist/
 coverage/
 *.tsbuildinfo
 target/
+apps/desktop/src-tauri/gen/
 .env*
 !.env.example
 .DS_Store

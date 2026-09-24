@@ -53,4 +53,25 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build:desktop:native
+      - if: matrix.os == 'windows-latest'
+        run: pnpm build:desktop:native
+      - if: matrix.os == 'macos-latest'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - if: matrix.os == 'macos-latest'
+        run: pnpm build:desktop:preview:macos
+      - if: matrix.os == 'macos-latest'
+        name: Verify unsigned preview disk image
+        shell: bash
+        run: |
+          dmg="apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/AYRA_0.0.0_universal.dmg"
+          hdiutil verify "$dmg"
+          shasum -a 256 "$dmg" > "$dmg.sha256"
+      - if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ayra-macos-unsigned-preview
+          path: |
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/AYRA_0.0.0_universal.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/AYRA_0.0.0_universal.dmg.sha256
+          if-no-files-found: error
+          retention-days: 7

@@ -41,6 +41,8 @@ pnpm build:desktop:native
 
 `pnpm check` 依次执行 lint、架构边界检查、格式检查、全部 package/app 的 typecheck、确定性测试和构建。五个 app 可分别使用 `pnpm --filter @ayra/<app> build` 构建。Desktop 的普通 build 是 WebView 前端；`build:desktop:native` 额外构建 Rust 可执行文件。Mobile build 导出 iOS、Android 与 Web JS/assets，原生 IPA/APK 编译和真机验收属于后续阶段，不等同本命令通过。
 
+macOS 开发预览可运行 `rustup target add x86_64-apple-darwin aarch64-apple-darwin` 后执行 `pnpm build:desktop:preview:macos`。该命令生成 Intel + Apple Silicon 通用 DMG；CI 校验磁盘映像并保留 7 天的构建产物。它是未签名的 `0.0.0` 原型，尚未经过 Developer ID 签名、公证或发布验收，不应作为官网正式下载提供。
+
 GitHub Actions 配置包括工程检查、真实 Compose 服务验证及 macOS/Windows 原生编译。配置存在不等于远端 CI 已通过。
 
 ## 工程边界

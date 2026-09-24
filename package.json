@@ -21,6 +21,7 @@
     "test:temporal": "pnpm --filter @ayra/worker test:temporal",
     "build": "pnpm -r --workspace-concurrency=2 build",
     "build:desktop:native": "pnpm --filter @ayra/desktop build:native",
+    "build:desktop:preview:macos": "pnpm --filter @ayra/desktop build:preview:macos",
     "lint": "eslint . && node scripts/check-boundaries.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
