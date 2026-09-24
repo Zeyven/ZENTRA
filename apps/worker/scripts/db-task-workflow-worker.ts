@@ -1,5 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import pg from 'pg';
+import { fileURLToPath } from 'node:url';
 import { createTaskActivities } from '../src/task-activities';
 import { createResultArtifactCanonicalizer } from '../src/result-artifact';
 import { runTaskExecutionProcess } from '../src/task-execution-process';
@@ -51,6 +52,14 @@ try {
     address: process.env.TEMPORAL_ADDRESS ?? '127.0.0.1:7233',
     namespace: process.env.TEMPORAL_NAMESPACE ?? 'ayra-development',
     taskQueue: process.env.AYRA_TEST_TASK_QUEUE ?? 'ayra-db-task-test',
+    workflowsPath: fileURLToPath(
+      new URL(
+        process.env.AYRA_TEST_BUNDLED_WORKFLOW === '1'
+          ? '../dist/task.workflow.js'
+          : '../src/task.workflow.ts',
+        import.meta.url,
+      ),
+    ),
     signal: shutdown.signal,
     pollIntervalMs: 100,
     onReady: () => console.info('AYRA_DB_TASK_WORKER_READY'),

@@ -1,6 +1,5 @@
 import { Client, Connection } from '@temporalio/client';
 import { NativeConnection, Worker } from '@temporalio/worker';
-import { fileURLToPath } from 'node:url';
 import type { Pool } from 'pg';
 import type { TaskActivities } from './task-activity-contract';
 import { dispatchTaskStartBatch } from './outbox-dispatcher';
@@ -13,6 +12,7 @@ type TaskExecutionOptions = {
   address: string;
   namespace: string;
   taskQueue: string;
+  workflowsPath: string;
   signal: AbortSignal;
   pollIntervalMs?: number;
   onReady?: () => void;
@@ -33,7 +33,7 @@ export async function runTaskExecutionProcess(options: TaskExecutionOptions): Pr
       connection: native,
       namespace: options.namespace,
       taskQueue: options.taskQueue,
-      workflowsPath: fileURLToPath(new URL('./task.workflow.ts', import.meta.url)),
+      workflowsPath: options.workflowsPath,
       activities: options.activities,
     });
     workerPromise = worker.run().catch((error: unknown) => {

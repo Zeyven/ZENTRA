@@ -30,6 +30,8 @@ jobs:
       - run: pnpm migrate
       - run: pnpm test:integration
       - run: pnpm test:api
+        env:
+          AYRA_TEST_BUNDLED_WORKFLOW: '1'
       - run: pnpm test:core
       - if: failure()
         name: Temporal startup diagnostics
