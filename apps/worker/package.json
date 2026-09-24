@@ -8,7 +8,7 @@
     "build": "tsup src/index.ts --format esm --target node24 --clean",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "test:temporal": "tsx scripts/test-durability.ts"
+    "test:temporal": "tsx scripts/test-durability.ts && tsx scripts/test-task-workflow.ts"
   },
   "dependencies": {
     "@ayra/config": "workspace:*",
