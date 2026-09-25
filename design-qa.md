@@ -1,51 +1,29 @@
-# AYRA Website + Desktop UI review — 2026-09-23
+# AYRA desktop frontend design QA — 2026-09-25
 
-## Scope and visual targets
+## Scope
 
-Website follows the third Calm Narrative concept in design-system/concepts/website and the user’s later instruction to begin development. Desktop uses AYRA0–AYRA3 as approximate layout/brand references; their populated business data is not implemented or copied into runtime states. Supplied charcoal/porcelain logo files remain authoritative.
+This review covers the desktop frontend update on the ZA-AYRA branch. The visual targets are the user-provided AYRA0.png through AYRA3.png screenshots. They are approximate layout and visual references, while the AYRA baseline and later website/desktop design specification govern product boundaries. The marketing website remains a separate download-oriented product.
 
-This review covers the implemented interface, not M1–M12 business functionality, production readiness, a native OS usability certification, or the unimplemented populated states.
+## Captures and comparison
 
-## Local engineering evidence
+The four reference images at `/Users/mac/Downloads/AYRA0.png` through `/Users/mac/Downloads/AYRA3.png` were inspected. The updated Home, Chat, Work, Build, and Projects surfaces were captured and visually inspected in Codex In-app Browser tab 3 at `http://127.0.0.1:1420/` at the normal desktop viewport. Browser screenshots were inspected in the tool; they were not exported as repository assets. The latest screen was captured after implementation, not inferred from the source code.
 
-- Full pnpm check passed: ESLint, architecture boundaries, format, workspace typechecks, 19 deterministic tests, and all workspace builds.
-- Four marketing routes return HTTP 200; /chat, /work, /build, /projects and /settings return 404 on the website.
-- Native builds are separately checked in GitHub Actions; the earlier 923601b run is not evidence for this UI revision.
+Home follows the reference's wide editorial hero, four quiet metrics, Continue Working, Projects, and right focus/activity rail. Chat follows its conversation/context split. Work follows the outline/document/source split. Build follows its repository/code/agent layout with tests, diff, and preview. Projects provides a focused list/detail workspace. The supplied logo and mountain image remain in use; the fictional sample avatar was generated for this layout. Spacing, typography, radii, icon weight, and pastel accents are consistent across surfaces.
 
-## Browser evidence
+## Interaction checks
 
-Screenshots are stored locally in .local/product-qa (not published as source): website-home, home-mobile, product-mobile, product-tablet, download-mobile, security-mobile, desktop-home, desktop-chat, desktop-work, desktop-build. Captures were inspected, not merely created.
-
-- Desktop browser composition reviewed at the normal approximately 1440 CSS-pixel viewport. No fabricated users, task counts, progress, sources, approvals or passing project tests.
-- Website Home/Product/Download/Security measured at 390 CSS pixels: content width 374 pixels excluding the scrollbar, no horizontal overflow. Product tablet measured at 768 CSS pixels, content width 751. Mobile menu and both unavailable installer controls checked.
-- Browser retains a 93% zoom. Screenshot emulation sometimes produces a stale cropped frame immediately after navigation. The inspected captures were retaken after state settled. Reported widths are measured DOM/CSS values rather than requested capture dimensions. Temporary overrides were cleared.
-- Desktop minimum-width layout measured at 900 CSS pixels with content width 900. Main task surfaces remain desktop layouts; no mobile desktop clone is offered.
-- Verified overview opening, step advance, Escape dismissal and focus return; mobile menu route selection; search query → Enter → Build; Projects → Artifacts; Chat suggestion → editable draft → honest unavailable-service notice; Context hide/show; Work draft + Insights; Build Tests empty state; Activity Approvals filter; compact navigation surviving route changes.
-- Desktop verification tab console returned no errors or warnings during interactions. A stale Next dev route error from deleting the old workspace pages was cleared by restarting the dev server; production build had already passed.
-
-## Findings fixed
-
-- Replaced an undefined background token with the shared warm-white background token.
-- Restored panel padding after introducing shared Card primitives.
-- Removed empty KPI cards from Home and internal Inspect/Plan/Code/Test/Review steps from the agent summary. Build defaults to Preview.
-- Replaced URL/port guessing with explicit desktop navigation callbacks.
-- Added keyboard-search semantics and preserved accessible account naming in compact layouts.
-- Skip-to-content focuses the current main surface instead of changing the desktop hash route to Home.
-- Removed simulated outer window/background frame; Tauri owns its actual native window.
+- Navigation between Home, Chat, Work, Build, Projects, and Activity showed the expected surface.
+- Chat sample source notes expand; Work outline and context tabs change; Build tabs and selected file content change; Projects list selection changes its details; Activity filters show matching rows.
+- The workspace menu switches between clearly labeled illustrative sample content and the real personal workspace. The selection survived a reload.
+- The personal Projects creation form opened and cancelled without creating test data. Local project serialization, malformed-data handling, and storage-failure behavior have deterministic tests. Project creation remains device-only and is labeled as such.
+- The browser console had no errors or warnings during the inspected sample interactions. The Vite preview was restarted after adding a package export and the browser was reloaded successfully.
 
 ## Apple-style review
 
-- Clarity: active navigation, page title/breadcrumb and connected/unavailable states identify location and status.
-- Deference: conversation/document/preview occupies the largest work surface; Context can be hidden; website avoids application controls.
-- Depth: persistent navigation, page content and supporting context have distinct but restrained levels.
-- Consistency: shared color, spacing, type, radius and shadow tokens; Phosphor outline icons; supplied brand mark.
-
-## Local draft follow-up
-
-Chat and Work drafts were entered separately in an isolated preview tab. Both appeared on Home, reopened with the original text, and survived a reload. Removing the text removed each Home entry. Storage failure and malformed/oversized data have deterministic tests. Copy returned a success notice; browser CDP observed a blob download request with the expected file name and bytes, but the in-app browser did not emit a completed download event. Native desktop save behavior remains unverified. Test drafts were cleared after verification.
+Clarity: each surface has one primary center, navigation state, and a visible next action. Deference: content occupies the main width; supporting context stays in side rails. Depth: sidebar, primary canvas, and context have restrained hierarchy. Consistency: the same warm-white surfaces, soft borders, Phosphor icons, and editorial titles appear across the app.
 
 ## Remaining limits
 
-Current UI intentionally has service-disconnected empty states. Chat/Work drafts persist on this device and can be resumed after navigation or reload; they are not synced to an account. Complete keyboard/screen-reader certification, true macOS/Windows window interaction, and populated application states require their own follow-up acceptance. No public installer, recorded overview video, real AI response or persistent project exists yet. Local Docker infrastructure remains NOT VERIFIED by user choice.
+The sample workspace is explicitly illustrative and contains no real account, model response, verified research data, repository, or running tests. Personal Chat notes, Work drafts, and Projects are local frontend features. Account sync, real AI execution, native installer release, macOS/Windows end-to-end verification of this revision, and backend services remain unfinished. The user requested frontend work before backend implementation. Docker infrastructure remains unverified by the user's stated choice.
 
-final result: pass for the implemented interface scope, with the limits above; not full product acceptance.
+final result: passed

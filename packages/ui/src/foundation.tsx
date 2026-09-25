@@ -1,9 +1,12 @@
 'use client';
 import { useState, useEffect, type ReactNode } from 'react';
 import { CommandBar } from './components/command-bar';
-import { Sidebar, Card, TaskCard, ArtifactCard, ProjectCard } from './components/primitives';
+import { Sidebar, Card, ArtifactCard, ProjectCard } from './components/primitives';
 import { MAX_DRAFT_LENGTH, type DraftSurface, type LocalDraft } from './local-drafts';
 import { MAX_CHAT_NOTE_LENGTH, MAX_CHAT_NOTES, type LocalChatNote } from './local-chat-notes';
+import { MAX_LOCAL_PROJECTS, type LocalProject } from './local-projects';
+import { SampleWorkspace } from './sample-workspace';
+import sampleAvatar from './assets/taylor-demo.png';
 import {
   House,
   ChatCircle,
@@ -117,6 +120,11 @@ export function FoundationView({
   onChatNoteSave,
   onChatNoteDelete,
   onDraftChange,
+  localProjects,
+  projectsSaveAvailable,
+  onProjectCreate,
+  sampleMode,
+  onSampleModeChange,
 }: {
   surface?: Surface;
   navigation: ReactNode;
@@ -131,6 +139,11 @@ export function FoundationView({
   onChatNoteSave: (text: string) => boolean;
   onChatNoteDelete: (id: string) => boolean;
   onDraftChange: (surface: DraftSurface, text: string) => void;
+  localProjects: LocalProject[];
+  projectsSaveAvailable: boolean;
+  onProjectCreate: (name: string, description: string, area: 'Work' | 'Build') => boolean;
+  sampleMode: boolean;
+  onSampleModeChange: (value: boolean) => void;
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -149,6 +162,13 @@ export function FoundationView({
   const [workTab, setWorkTab] = useState('Sources');
   const [notice, setNotice] = useState('');
   const [contextOpen, setContextOpen] = useState(true);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [projectArea, setProjectArea] = useState<'Work' | 'Build'>('Work');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const selectedProject =
+    localProjects.find((item) => item.id === selectedProjectId) ?? localProjects[0];
   const toggle = (value: typeof menu) => setMenu(menu === value ? null : value);
   const navigate = onNavigate;
   const draft = surface === 'Chat' || surface === 'Work' ? (localDrafts[surface]?.text ?? '') : '';
@@ -191,8 +211,6 @@ export function FoundationView({
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const unavailable = () =>
-    setNotice('账户与任务服务尚未开放。内容仍保留在当前页面，没有发送到模型。');
   return (
     <div className={`shell ${compact ? 'compact' : ''}`}>
       <a
@@ -236,7 +254,7 @@ export function FoundationView({
             aria-expanded={menu === 'workspace'}
           >
             <span className="brand-symbol small" />
-            Personal workspace
+            {sampleMode ? 'Acme Studio · sample' : 'Personal workspace'}
             <CaretDown size={14} />
           </button>
           <CommandBar
@@ -261,10 +279,13 @@ export function FoundationView({
               onClick={() => toggle('account')}
             >
               <span className="account-avatar">
-                <SurfaceIcon surface="Home" />
+                {sampleMode ? <img src={sampleAvatar} alt="" /> : <SurfaceIcon surface="Home" />}
               </span>
               <span>
-                Guest<span className="muted account-caption">Local preview</span>
+                {sampleMode ? 'Taylor Kim' : 'Guest'}
+                <span className="muted account-caption">
+                  {sampleMode ? 'Sample persona' : 'Local preview'}
+                </span>
               </span>
               <CaretDown size={14} />
             </button>
@@ -273,24 +294,63 @@ export function FoundationView({
             <div className={`top-popover ${menu}`}>
               <strong>
                 {menu === 'workspace'
-                  ? 'Personal workspace'
+                  ? sampleMode
+                    ? 'Sample workspace'
+                    : 'Personal workspace'
                   : menu === 'notifications'
                     ? 'Notifications'
                     : 'Guest preview'}
               </strong>
               <p>
                 {menu === 'workspace'
-                  ? '工作区服务尚未连接。当前为本地界面预览。'
+                  ? '切换示例页面与本机个人工作区。示例数据不会保存，也不会进入真实工作区。'
                   : menu === 'notifications'
                     ? '暂无通知。账户连接后，更新会显示在这里。'
                     : '身份服务尚未开放，当前未登录。'}
               </p>
+              {menu === 'workspace' && (
+                <div className="workspace-choices">
+                  <button
+                    aria-pressed={sampleMode}
+                    onClick={() => {
+                      onSampleModeChange(true);
+                      setMenu(null);
+                    }}
+                  >
+                    Acme Studio · sample
+                  </button>
+                  <button
+                    aria-pressed={!sampleMode}
+                    onClick={() => {
+                      onSampleModeChange(false);
+                      setMenu(null);
+                    }}
+                  >
+                    Personal workspace
+                  </button>
+                </div>
+              )}
               <button onClick={() => setMenu(null)}>Close</button>
             </div>
           )}
         </header>
         <main id="main" tabIndex={-1}>
-          {surface === 'Home' ? (
+          {sampleMode &&
+          (surface === 'Home' ||
+            surface === 'Chat' ||
+            surface === 'Work' ||
+            surface === 'Build' ||
+            surface === 'Projects' ||
+            surface === 'Activity') ? (
+            <SampleWorkspace
+              surface={surface}
+              onNavigate={navigate}
+              onUseOwn={(target) => {
+                onSampleModeChange(false);
+                navigate(target);
+              }}
+            />
+          ) : surface === 'Home' ? (
             <div className="home-grid">
               <div className="home-primary">
                 <section className="hero">
@@ -379,9 +439,30 @@ export function FoundationView({
                   </div>
                 </Panel>
                 <Panel title="Recent Projects">
-                  <Empty icon="Projects" title="A fresh start for your projects">
-                    项目服务连接后，你的项目会显示在这里。
-                  </Empty>
+                  {localProjects.length ? (
+                    <div className="local-home-projects">
+                      {localProjects.slice(0, 4).map((project) => (
+                        <button
+                          key={project.id}
+                          onClick={() => {
+                            setSelectedProjectId(project.id);
+                            navigate('Projects');
+                          }}
+                        >
+                          <span className="metric-icon">
+                            <SurfaceIcon surface={project.area} />
+                          </span>
+                          <strong>{project.name}</strong>
+                          <small>{project.area} · On this device</small>
+                          <ArrowRight size={16} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty icon="Projects" title="A fresh start for your projects">
+                      在 Projects 创建第一个本机项目。
+                    </Empty>
+                  )}
                 </Panel>
               </div>
               <div className="home-rail">
@@ -725,6 +806,91 @@ export function FoundationView({
                 </>
               ) : surface === 'Projects' ? (
                 <div className="project-workspace">
+                  <div className="local-project-heading">
+                    <span>
+                      {localProjects.length} projects ·{' '}
+                      {projectsSaveAvailable ? 'on this device' : 'current session only'} · not
+                      synced
+                    </span>
+                    <button
+                      className="primary"
+                      onClick={() => setCreatingProject(!creatingProject)}
+                      disabled={localProjects.length >= MAX_LOCAL_PROJECTS}
+                    >
+                      <Plus size={16} />
+                      New local project
+                    </button>
+                  </div>
+                  {creatingProject && (
+                    <form
+                      className="local-project-form panel"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const name = projectName.trim();
+                        if (!name) return;
+                        const saved = onProjectCreate(name, projectDescription.trim(), projectArea);
+                        setProjectName('');
+                        setProjectDescription('');
+                        setCreatingProject(false);
+                        setNotice(
+                          saved
+                            ? '本机项目已创建；尚未同步。'
+                            : '项目在当前会话中已创建，但本机保存不可用。',
+                        );
+                      }}
+                    >
+                      <h2>Create a local project</h2>
+                      <label>
+                        Project name
+                        <input
+                          autoFocus
+                          required
+                          maxLength={100}
+                          value={projectName}
+                          onChange={(event) => setProjectName(event.target.value)}
+                          placeholder="e.g. Q2 strategy"
+                        />
+                      </label>
+                      <label>
+                        Description
+                        <textarea
+                          maxLength={500}
+                          value={projectDescription}
+                          onChange={(event) => setProjectDescription(event.target.value)}
+                          placeholder="What are you working toward?"
+                        />
+                      </label>
+                      <div className="local-project-area">
+                        <span>Area</span>
+                        <button
+                          type="button"
+                          aria-pressed={projectArea === 'Work'}
+                          onClick={() => setProjectArea('Work')}
+                        >
+                          Work
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={projectArea === 'Build'}
+                          onClick={() => setProjectArea('Build')}
+                        >
+                          Build
+                        </button>
+                      </div>
+                      <div className="local-project-form-actions">
+                        <button
+                          type="button"
+                          className="subtle"
+                          onClick={() => setCreatingProject(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button type="submit" className="primary">
+                          Create project
+                        </button>
+                      </div>
+                    </form>
+                  )}
                   <div className="tabs" aria-label="Project sections">
                     {['Overview', 'Resources', 'Tasks', 'Artifacts'].map((tab) => (
                       <button
@@ -738,19 +904,57 @@ export function FoundationView({
                   </div>
                   {projectTab === 'Overview' ? (
                     <div className="project-overview">
-                      <ProjectCard
-                        title="A home for your next idea"
-                        description="Keep the goal, resources, and outcomes together."
-                      >
-                        <p>项目服务尚未连接。这里将展示你选择的项目，不会创建演示项目。</p>
-                        <button className="primary" onClick={unavailable}>
-                          <Plus size={16} />
-                          Create project
-                        </button>
-                      </ProjectCard>
-                      <TaskCard title="Start with a clear goal" status="Not connected">
-                        <p>项目创建后，目标与下一步会显示在这里。</p>
-                      </TaskCard>
+                      {selectedProject ? (
+                        <>
+                          <div className="local-project-list panel">
+                            {localProjects.map((project) => (
+                              <button
+                                key={project.id}
+                                aria-pressed={selectedProject.id === project.id}
+                                onClick={() => setSelectedProjectId(project.id)}
+                              >
+                                <span className="metric-icon">
+                                  <SurfaceIcon surface={project.area} />
+                                </span>
+                                <span>
+                                  <strong>{project.name}</strong>
+                                  <small>{project.area} · On this device</small>
+                                </span>
+                                <ArrowRight size={15} />
+                              </button>
+                            ))}
+                          </div>
+                          <ProjectCard
+                            title={selectedProject.name}
+                            description={
+                              selectedProject.description || 'A new space for your project.'
+                            }
+                          >
+                            <p>
+                              Stored on this device · {selectedProject.area} project · Not synced to
+                              an account
+                            </p>
+                            <button
+                              className="primary"
+                              onClick={() => navigate(selectedProject.area)}
+                            >
+                              Open {selectedProject.area}
+                              <ArrowRight size={16} />
+                            </button>
+                          </ProjectCard>
+                        </>
+                      ) : (
+                        <ProjectCard
+                          title="A home for your next idea"
+                          description="Keep the goal, resources, and outcomes together."
+                        >
+                          <p>创建一个本机项目，开始整理你的工作。</p>
+                          <button className="primary" onClick={() => setCreatingProject(true)}>
+                            <Plus size={16} />
+                            Create local project
+                          </button>
+                        </ProjectCard>
+                      )}
                     </div>
                   ) : projectTab === 'Artifacts' ? (
                     <ArtifactCard title="Your project’s outcomes" kind="No artifacts yet">

@@ -14,6 +14,12 @@ import {
   writeLocalChatNotes,
   type LocalChatNote,
 } from '@ayra/ui/local-chat-notes';
+import {
+  MAX_LOCAL_PROJECTS,
+  readLocalProjects,
+  writeLocalProjects,
+  type LocalProject,
+} from '@ayra/ui/local-projects';
 import '@ayra/ui/components.css';
 import '@ayra/ui/styles.css';
 function current(): Surface {
@@ -22,6 +28,13 @@ function current(): Surface {
 function App() {
   const [surface, setSurface] = useState(current);
   const [compact, setCompact] = useState(false);
+  const [sampleMode, setSampleMode] = useState(() => {
+    try {
+      return window.localStorage.getItem('ayra-workspace-mode') !== 'personal';
+    } catch {
+      return true;
+    }
+  });
   const [draftStorage] = useState<DraftStorage | null>(() => {
     try {
       return window.localStorage;
@@ -38,21 +51,47 @@ function App() {
     readLocalChatNotes(draftStorage),
   );
   const [chatNotesSaveAvailable, setChatNotesSaveAvailable] = useState(Boolean(draftStorage));
+  const [localProjects, setLocalProjects] = useState<LocalProject[]>(() =>
+    readLocalProjects(draftStorage),
+  );
+  const [projectsSaveAvailable, setProjectsSaveAvailable] = useState(Boolean(draftStorage));
   useEffect(() => {
     const update = () => setSurface(current());
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
   }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('ayra-workspace-mode', sampleMode ? 'sample' : 'personal');
+    } catch {
+      // The workspace switch still works for this session when storage is unavailable.
+    }
+  }, [sampleMode]);
   return (
     <FoundationView
       key={surface}
       surface={surface}
       compact={compact}
       onCompactChange={setCompact}
+      sampleMode={sampleMode}
+      onSampleModeChange={setSampleMode}
       localDrafts={localDrafts}
       draftSaveAvailable={draftSaveAvailable}
       chatNotes={chatNotes}
       chatNotesSaveAvailable={chatNotesSaveAvailable}
+      localProjects={localProjects}
+      projectsSaveAvailable={projectsSaveAvailable}
+      onProjectCreate={(name, description, area) => {
+        if (localProjects.length >= MAX_LOCAL_PROJECTS) return false;
+        const next = [
+          { id: crypto.randomUUID(), name, description, area, createdAt: Date.now() },
+          ...localProjects,
+        ];
+        setLocalProjects(next);
+        const saved = writeLocalProjects(draftStorage, next);
+        setProjectsSaveAvailable(saved);
+        return saved;
+      }}
       onChatNoteSave={(text) => {
         const note: LocalChatNote = { id: crypto.randomUUID(), text, createdAt: Date.now() };
         if (chatNotes.length >= MAX_CHAT_NOTES) return false;
