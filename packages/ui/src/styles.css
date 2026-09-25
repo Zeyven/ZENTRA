@@ -1449,3 +1449,63 @@ body:before {
     flex-direction: column;
   }
 }
+.local-project-progress {
+  font-size: 12px;
+  color: var(--secondary);
+  margin: 18px 0 0;
+}
+.project-overview .ay-object .subtle {
+  margin-top: 10px;
+}
+.local-task-form {
+  display: flex;
+  gap: 9px;
+  padding: 12px 0 18px;
+}
+.local-task-form input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+}
+.local-task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.local-task-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding: 12px 2px;
+  font-size: 13px;
+}
+.local-task-list label {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: 1;
+  cursor: pointer;
+}
+.local-task-list input {
+  accent-color: #438c71;
+  width: 17px;
+  height: 17px;
+}
+.local-task-list .done {
+  text-decoration: line-through;
+  color: var(--secondary);
+}
+.local-task-list small {
+  color: var(--secondary);
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .local-task-form {
+    flex-direction: column;
+  }
+}

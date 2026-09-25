@@ -16,6 +16,7 @@ import {
 } from '@ayra/ui/local-chat-notes';
 import {
   MAX_LOCAL_PROJECTS,
+  MAX_LOCAL_PROJECT_TASKS,
   readLocalProjects,
   writeLocalProjects,
   type LocalProject,
@@ -55,6 +56,13 @@ function App() {
     readLocalProjects(draftStorage),
   );
   const [projectsSaveAvailable, setProjectsSaveAvailable] = useState(Boolean(draftStorage));
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const saveProjects = (next: LocalProject[]) => {
+    setLocalProjects(next);
+    const saved = writeLocalProjects(draftStorage, next);
+    setProjectsSaveAvailable(saved);
+    return saved;
+  };
   useEffect(() => {
     const update = () => setSurface(current());
     window.addEventListener('hashchange', update);
@@ -81,16 +89,43 @@ function App() {
       chatNotesSaveAvailable={chatNotesSaveAvailable}
       localProjects={localProjects}
       projectsSaveAvailable={projectsSaveAvailable}
+      selectedProjectId={selectedProjectId}
+      onProjectSelect={setSelectedProjectId}
       onProjectCreate={(name, description, area) => {
         if (localProjects.length >= MAX_LOCAL_PROJECTS) return false;
+        const id = crypto.randomUUID();
         const next = [
-          { id: crypto.randomUUID(), name, description, area, createdAt: Date.now() },
+          { id, name, description, area, createdAt: Date.now(), tasks: [] },
           ...localProjects,
         ];
-        setLocalProjects(next);
-        const saved = writeLocalProjects(draftStorage, next);
-        setProjectsSaveAvailable(saved);
-        return saved;
+        setSelectedProjectId(id);
+        return saveProjects(next);
+      }}
+      onProjectTaskAdd={(projectId, title) => {
+        const project = localProjects.find((item) => item.id === projectId);
+        if (!project || project.tasks.length >= MAX_LOCAL_PROJECT_TASKS) return false;
+        const task = { id: crypto.randomUUID(), title, done: false, createdAt: Date.now() };
+        return saveProjects(
+          localProjects.map((item) =>
+            item.id === projectId ? { ...item, tasks: [...item.tasks, task] } : item,
+          ),
+        );
+      }}
+      onProjectTaskToggle={(projectId, taskId) => {
+        const project = localProjects.find((item) => item.id === projectId);
+        if (!project?.tasks.some((task) => task.id === taskId)) return false;
+        return saveProjects(
+          localProjects.map((item) =>
+            item.id === projectId
+              ? {
+                  ...item,
+                  tasks: item.tasks.map((task) =>
+                    task.id === taskId ? { ...task, done: !task.done } : task,
+                  ),
+                }
+              : item,
+          ),
+        );
       }}
       onChatNoteSave={(text) => {
         const note: LocalChatNote = { id: crypto.randomUUID(), text, createdAt: Date.now() };

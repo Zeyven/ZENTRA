@@ -16,6 +16,7 @@ Home follows the reference's wide editorial hero, four quiet metrics, Continue W
 - Chat sample source notes expand; Work outline and context tabs change; Build tabs and selected file content change; Projects list selection changes its details; Activity filters show matching rows.
 - The workspace menu switches between clearly labeled illustrative sample content and the real personal workspace. The selection survived a reload.
 - The personal Projects creation form opened and cancelled without creating test data. Local project serialization, malformed-data handling, and storage-failure behavior have deterministic tests. Project creation remains device-only and is labeled as such.
+- The Projects frontend flow was exercised at an isolated `127.0.0.1:1421` test origin: create two local projects, add and complete a task, reload to confirm persistence, then select the older project from Home and verify its details remained selected after navigation. This test data did not touch the user's `127.0.0.1:1420` preview origin.
 - The browser console had no errors or warnings during the inspected sample interactions. The Vite preview was restarted after adding a package export and the browser was reloaded successfully.
 
 ## Apple-style review

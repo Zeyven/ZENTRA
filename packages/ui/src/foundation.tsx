@@ -4,7 +4,7 @@ import { CommandBar } from './components/command-bar';
 import { Sidebar, Card, ArtifactCard, ProjectCard } from './components/primitives';
 import { MAX_DRAFT_LENGTH, type DraftSurface, type LocalDraft } from './local-drafts';
 import { MAX_CHAT_NOTE_LENGTH, MAX_CHAT_NOTES, type LocalChatNote } from './local-chat-notes';
-import { MAX_LOCAL_PROJECTS, type LocalProject } from './local-projects';
+import { MAX_LOCAL_PROJECTS, MAX_LOCAL_PROJECT_TASKS, type LocalProject } from './local-projects';
 import { SampleWorkspace } from './sample-workspace';
 import sampleAvatar from './assets/taylor-demo.png';
 import {
@@ -123,6 +123,10 @@ export function FoundationView({
   localProjects,
   projectsSaveAvailable,
   onProjectCreate,
+  selectedProjectId,
+  onProjectSelect,
+  onProjectTaskAdd,
+  onProjectTaskToggle,
   sampleMode,
   onSampleModeChange,
 }: {
@@ -142,6 +146,10 @@ export function FoundationView({
   localProjects: LocalProject[];
   projectsSaveAvailable: boolean;
   onProjectCreate: (name: string, description: string, area: 'Work' | 'Build') => boolean;
+  selectedProjectId: string | null;
+  onProjectSelect: (id: string | null) => void;
+  onProjectTaskAdd: (projectId: string, title: string) => boolean;
+  onProjectTaskToggle: (projectId: string, taskId: string) => boolean;
   sampleMode: boolean;
   onSampleModeChange: (value: boolean) => void;
 }) {
@@ -166,7 +174,7 @@ export function FoundationView({
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [projectArea, setProjectArea] = useState<'Work' | 'Build'>('Work');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
   const selectedProject =
     localProjects.find((item) => item.id === selectedProjectId) ?? localProjects[0];
   const toggle = (value: typeof menu) => setMenu(menu === value ? null : value);
@@ -445,7 +453,7 @@ export function FoundationView({
                         <button
                           key={project.id}
                           onClick={() => {
-                            setSelectedProjectId(project.id);
+                            onProjectSelect(project.id);
                             navigate('Projects');
                           }}
                         >
@@ -911,7 +919,7 @@ export function FoundationView({
                               <button
                                 key={project.id}
                                 aria-pressed={selectedProject.id === project.id}
-                                onClick={() => setSelectedProjectId(project.id)}
+                                onClick={() => onProjectSelect(project.id)}
                               >
                                 <span className="metric-icon">
                                   <SurfaceIcon surface={project.area} />
@@ -934,6 +942,13 @@ export function FoundationView({
                               Stored on this device · {selectedProject.area} project · Not synced to
                               an account
                             </p>
+                            <p className="local-project-progress">
+                              {selectedProject.tasks.filter((task) => task.done).length} of{' '}
+                              {selectedProject.tasks.length} local tasks complete
+                            </p>
+                            <button className="subtle" onClick={() => setProjectTab('Tasks')}>
+                              View tasks <ArrowRight size={16} />
+                            </button>
                             <button
                               className="primary"
                               onClick={() => navigate(selectedProject.area)}
@@ -956,6 +971,84 @@ export function FoundationView({
                         </ProjectCard>
                       )}
                     </div>
+                  ) : projectTab === 'Tasks' ? (
+                    <Panel title={selectedProject ? `${selectedProject.name} · Tasks` : 'Tasks'}>
+                      {selectedProject ? (
+                        <>
+                          <p className="muted padded">
+                            Keep the next steps close to the project. These tasks stay on this
+                            device and do not run an AI agent.
+                          </p>
+                          <form
+                            className="local-task-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              const title = newTaskTitle.trim();
+                              if (!title) return;
+                              const saved = onProjectTaskAdd(selectedProject.id, title);
+                              setNewTaskTitle('');
+                              setNotice(
+                                saved
+                                  ? '本机任务已添加。'
+                                  : '任务在当前会话中已添加，但本机保存不可用。',
+                              );
+                            }}
+                          >
+                            <input
+                              aria-label="New task"
+                              maxLength={160}
+                              placeholder="Add a next step…"
+                              value={newTaskTitle}
+                              onChange={(event) => setNewTaskTitle(event.target.value)}
+                            />
+                            <button
+                              className="primary"
+                              disabled={
+                                !newTaskTitle.trim() ||
+                                selectedProject.tasks.length >= MAX_LOCAL_PROJECT_TASKS
+                              }
+                            >
+                              <Plus size={16} />
+                              Add task
+                            </button>
+                          </form>
+                          {selectedProject.tasks.length ? (
+                            <ul className="local-task-list">
+                              {selectedProject.tasks.map((task) => (
+                                <li key={task.id}>
+                                  <label>
+                                    <input
+                                      type="checkbox"
+                                      checked={task.done}
+                                      onChange={() => {
+                                        const saved = onProjectTaskToggle(
+                                          selectedProject.id,
+                                          task.id,
+                                        );
+                                        if (!saved)
+                                          setNotice(
+                                            '任务状态在当前会话中已更改，但本机保存不可用。',
+                                          );
+                                      }}
+                                    />
+                                    <span className={task.done ? 'done' : ''}>{task.title}</span>
+                                  </label>
+                                  <small>{task.done ? 'Complete' : 'Next step'}</small>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <Empty icon="Projects" title="No tasks yet">
+                              Add one clear next step to move this project forward.
+                            </Empty>
+                          )}
+                        </>
+                      ) : (
+                        <Empty icon="Projects" title="Choose a project first">
+                          Create a local project in Overview, then add its next steps here.
+                        </Empty>
+                      )}
+                    </Panel>
                   ) : projectTab === 'Artifacts' ? (
                     <ArtifactCard title="Your project’s outcomes" kind="No artifacts yet">
                       <p>生成的文档、报告与软件成果将在这里汇集。</p>
