@@ -3,6 +3,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { CommandBar } from './components/command-bar';
 import { Sidebar, Card, TaskCard, ArtifactCard, ProjectCard } from './components/primitives';
 import { MAX_DRAFT_LENGTH, type DraftSurface, type LocalDraft } from './local-drafts';
+import { MAX_CHAT_NOTE_LENGTH, MAX_CHAT_NOTES, type LocalChatNote } from './local-chat-notes';
 import {
   House,
   ChatCircle,
@@ -18,7 +19,6 @@ import {
   Target,
   Clock,
   Sun,
-  PaperPlaneTilt,
   SidebarSimple,
   ListBullets,
   Info,
@@ -28,6 +28,7 @@ import {
   TestTube,
   Eye,
   Files,
+  Trash,
 } from '@phosphor-icons/react';
 export const surfaces = [
   'Home',
@@ -111,6 +112,10 @@ export function FoundationView({
   onCompactChange,
   localDrafts,
   draftSaveAvailable,
+  chatNotes,
+  chatNotesSaveAvailable,
+  onChatNoteSave,
+  onChatNoteDelete,
   onDraftChange,
 }: {
   surface?: Surface;
@@ -121,6 +126,10 @@ export function FoundationView({
   onCompactChange: (value: boolean) => void;
   localDrafts: Record<DraftSurface, LocalDraft | null>;
   draftSaveAvailable: boolean;
+  chatNotes: LocalChatNote[];
+  chatNotesSaveAvailable: boolean;
+  onChatNoteSave: (text: string) => boolean;
+  onChatNoteDelete: (id: string) => boolean;
   onDraftChange: (surface: DraftSurface, text: string) => void;
 }) {
   useEffect(() => {
@@ -163,6 +172,20 @@ export function FoundationView({
     const link = document.createElement('a');
     link.href = url;
     link.download = kind === 'Work' ? 'ayra-work-draft.md' : 'ayra-chat-draft.txt';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const exportChatNotes = () => {
+    if (chatNotes.length === 0) return;
+    const contents = chatNotes
+      .map((note) => `${new Date(note.createdAt).toLocaleString()}\n${note.text}`)
+      .join('\n\n---\n\n');
+    const url = URL.createObjectURL(new Blob([contents], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'ayra-local-chat-notes.txt';
     document.body.append(link);
     link.click();
     link.remove();
@@ -307,6 +330,21 @@ export function FoundationView({
                         ))}
                     </div>
                   )}
+                  {chatNotes.length > 0 && (
+                    <div className="local-draft-list">
+                      <span className="eyebrow">LOCAL CHAT NOTES</span>
+                      <button onClick={() => navigate('Chat')}>
+                        <SurfaceIcon surface="Chat" />
+                        <span>
+                          <strong>
+                            {chatNotes.length} saved {chatNotes.length === 1 ? 'note' : 'notes'}
+                          </strong>
+                          <small>{chatNotes.at(-1)?.text.slice(0, 90)}</small>
+                        </span>
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  )}
                   <div className="working-grid">
                     {(['Chat', 'Work', 'Build'] as const).map((s, i) => (
                       <button className="work-card" key={s} onClick={() => navigate(s)}>
@@ -425,46 +463,99 @@ export function FoundationView({
                   <section className="chat-main panel">
                     <div className="conversation-heading">
                       <Sun size={22} />
-                      New conversation
+                      Notes on this device
+                      {chatNotes.length > 0 && (
+                        <button className="subtle" type="button" onClick={exportChatNotes}>
+                          Export notes
+                        </button>
+                      )}
                     </div>
-                    <div className="chat-welcome">
-                      <span className="brand-symbol" />
-                      <h2>What’s on your mind?</h2>
-                      <p>
-                        A question, a rough idea, a new direction.
-                        <br />
-                        Start wherever you are.
-                      </p>
-                      <div className="prompt-grid">
-                        {[
-                          'Help me explore an idea',
-                          'Outline a research plan',
-                          'Think through a challenge',
-                        ].map((p) => (
-                          <button key={p} onClick={() => onDraftChange('Chat', p)}>
-                            {p}
-                            <ArrowRight size={16} />
-                          </button>
-                        ))}
+                    {chatNotes.length === 0 ? (
+                      <div className="chat-welcome">
+                        <span className="brand-symbol" />
+                        <h2>Start with a thought.</h2>
+                        <p>
+                          Capture an idea or question here.
+                          <br />
+                          Notes stay on this device. AI replies are not connected yet.
+                        </p>
+                        <div className="prompt-grid">
+                          {[
+                            'Help me explore an idea',
+                            'Outline a research plan',
+                            'Think through a challenge',
+                          ].map((p) => (
+                            <button key={p} onClick={() => onDraftChange('Chat', p)}>
+                              {p}
+                              <ArrowRight size={16} />
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <ol className="chat-notes" aria-label="本机 Chat 笔记">
+                        {chatNotes.map((note) => (
+                          <li key={note.id}>
+                            <div className="chat-note-meta">
+                              <span>You · local note</span>
+                              <time dateTime={new Date(note.createdAt).toISOString()}>
+                                {new Date(note.createdAt).toLocaleString()}
+                              </time>
+                              <button
+                                type="button"
+                                aria-label="删除本机笔记"
+                                title="Delete note"
+                                onClick={() => {
+                                  if (
+                                    !window.confirm(
+                                      'Delete this local note? This cannot be undone.',
+                                    )
+                                  )
+                                    return;
+                                  setNotice(
+                                    onChatNoteDelete(note.id)
+                                      ? '本机笔记已删除。'
+                                      : '笔记在当前会话中已移除，但本机保存不可用。',
+                                  );
+                                }}
+                              >
+                                <Trash size={15} />
+                              </button>
+                            </div>
+                            <p>{note.text}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                     <form
                       className="composer"
                       onSubmit={(e) => {
                         e.preventDefault();
-                        unavailable();
+                        const text = draft.trim();
+                        if (!text) return;
+                        if (chatNotes.length >= MAX_CHAT_NOTES) {
+                          setNotice('本机笔记已达到 100 条上限。请导出并删除不需要的笔记后继续。');
+                          return;
+                        }
+                        setNotice(
+                          onChatNoteSave(text)
+                            ? '已保存为本机笔记；尚未发送给 AI。'
+                            : '笔记暂存在当前会话；本机保存不可用。',
+                        );
                       }}
                     >
                       <textarea
                         aria-label="消息草稿"
-                        placeholder="Ask AYRA anything…"
+                        placeholder="Capture a thought or question…"
                         value={draft}
-                        maxLength={MAX_DRAFT_LENGTH}
+                        maxLength={Math.min(MAX_DRAFT_LENGTH, MAX_CHAT_NOTE_LENGTH)}
                         onChange={(e) => onDraftChange('Chat', e.target.value)}
                       />
                       <div>
                         <span className="muted" role="status">
-                          {draftStatus}
+                          {chatNotesSaveAvailable
+                            ? draftStatus
+                            : '本机保存不可用；笔记仅在当前会话可见'}
                         </span>
                         <button
                           type="button"
@@ -483,11 +574,11 @@ export function FoundationView({
                           Copy draft
                         </button>
                         <button
-                          className="primary icon-button"
-                          aria-label="发送消息"
-                          disabled={!draft.trim()}
+                          className="primary"
+                          aria-label="保存为本机笔记"
+                          disabled={!draft.trim() || chatNotes.length >= MAX_CHAT_NOTES}
                         >
-                          <PaperPlaneTilt size={20} />
+                          <Plus size={18} /> 保存笔记
                         </button>
                       </div>
                     </form>

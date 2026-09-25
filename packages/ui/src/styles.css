@@ -627,6 +627,10 @@ footer {
   font-size: 13px;
   padding: 3px 6px;
 }
+.conversation-heading .subtle {
+  margin-left: auto;
+  font-size: 11px;
+}
 .chat-welcome {
   margin: auto;
   text-align: center;
@@ -666,6 +670,51 @@ footer {
 .prompt-grid svg {
   display: block;
   margin-top: 12px;
+}
+.chat-notes {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: 32px 18px;
+}
+.chat-notes li {
+  align-self: flex-end;
+  width: min(100%, 560px);
+  padding: 18px 20px;
+  background: #f3f6fa;
+  border: 1px solid #e5ebf1;
+  border-radius: 16px 16px 4px 16px;
+}
+.chat-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--secondary);
+  font-size: 11px;
+}
+.chat-note-meta time {
+  margin-left: auto;
+}
+.chat-note-meta button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--secondary);
+  cursor: pointer;
+}
+.chat-notes p {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  font-size: 14px;
 }
 .composer {
   border: 1px solid #dfe3eb;

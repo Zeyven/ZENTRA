@@ -63,4 +63,4 @@ GitHub Actions 配置包括工程检查、真实 Compose 服务验证及 macOS/W
 
 官网仅提供 `/`、`/product`、`/download`、`/security`，承担产品介绍与下载入口。原 Web Chat/Work/Build/Projects/Settings 路由已移除；实际工作空间属于桌面应用。安装包尚未发布，下载页明确显示不可用。
 
-桌面有 Home、Chat、Work、Build、Projects、Activity、Settings，支持页面搜索、上下文收起、分类切换，以及 Chat/Work 草稿在此设备自动保存、从首页继续和复制/导出。草稿未同步到账号。项目、账户、模型和任务服务未连接，不伪造执行结果。设计与验收记录见 `design-system/`、`design-qa.md` 和 `docs/implementation/UI.md`。
+桌面有 Home、Chat、Work、Build、Projects、Activity、Settings，支持页面搜索、上下文收起、分类切换，以及 Chat/Work 草稿在此设备自动保存、从首页继续和复制/导出。Chat 预览可把想法保存为本机笔记，并提供导出与删除；它们尚未同步到账号，也不会发送给 AI。服务端 Conversation 消息存储已实现，但 Desktop 尚未接入身份服务或该 API。项目、账户、模型和任务服务未连接，不伪造执行结果。设计与验收记录见 `design-system/`、`design-qa.md` 和 `docs/implementation/UI.md`。

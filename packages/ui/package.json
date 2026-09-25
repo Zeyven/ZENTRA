@@ -9,7 +9,8 @@
     "./components": "./src/components/primitives.tsx",
     "./icons": "./src/components/icons.tsx",
     "./components.css": "./src/components/primitives.css",
-    "./local-drafts": "./src/local-drafts.ts"
+    "./local-drafts": "./src/local-drafts.ts",
+    "./local-chat-notes": "./src/local-chat-notes.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

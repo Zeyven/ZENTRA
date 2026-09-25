@@ -8,6 +8,12 @@ import {
   type DraftSurface,
   type LocalDraft,
 } from '@ayra/ui/local-drafts';
+import {
+  MAX_CHAT_NOTES,
+  readLocalChatNotes,
+  writeLocalChatNotes,
+  type LocalChatNote,
+} from '@ayra/ui/local-chat-notes';
 import '@ayra/ui/components.css';
 import '@ayra/ui/styles.css';
 function current(): Surface {
@@ -28,6 +34,10 @@ function App() {
     Work: readLocalDraft(draftStorage, 'Work'),
   }));
   const [draftSaveAvailable, setDraftSaveAvailable] = useState(Boolean(draftStorage));
+  const [chatNotes, setChatNotes] = useState<LocalChatNote[]>(() =>
+    readLocalChatNotes(draftStorage),
+  );
+  const [chatNotesSaveAvailable, setChatNotesSaveAvailable] = useState(Boolean(draftStorage));
   useEffect(() => {
     const update = () => setSurface(current());
     window.addEventListener('hashchange', update);
@@ -41,6 +51,27 @@ function App() {
       onCompactChange={setCompact}
       localDrafts={localDrafts}
       draftSaveAvailable={draftSaveAvailable}
+      chatNotes={chatNotes}
+      chatNotesSaveAvailable={chatNotesSaveAvailable}
+      onChatNoteSave={(text) => {
+        const note: LocalChatNote = { id: crypto.randomUUID(), text, createdAt: Date.now() };
+        if (chatNotes.length >= MAX_CHAT_NOTES) return false;
+        const next = [...chatNotes, note];
+        setChatNotes(next);
+        const persisted = writeLocalChatNotes(draftStorage, next);
+        setChatNotesSaveAvailable(persisted);
+        const updatedAt = Date.now();
+        setLocalDrafts((currentDrafts) => ({ ...currentDrafts, Chat: null }));
+        setDraftSaveAvailable(writeLocalDraft(draftStorage, 'Chat', '', updatedAt));
+        return persisted;
+      }}
+      onChatNoteDelete={(id) => {
+        const next = chatNotes.filter((note) => note.id !== id);
+        setChatNotes(next);
+        const persisted = writeLocalChatNotes(draftStorage, next);
+        setChatNotesSaveAvailable(persisted);
+        return persisted;
+      }}
       onDraftChange={(kind, text) => {
         const updatedAt = Date.now();
         setLocalDrafts((currentDrafts) => ({
